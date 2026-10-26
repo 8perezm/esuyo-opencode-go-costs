@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Real Value of OpenCode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300..900&display=swap" rel="stylesheet" />
+<style>
+  :root { --bg:#f7f8fa; --ink:#1a1d21; --muted:#5f6b76; --line:#e3e8ee; --accent:#0b6cff; --green:#0e9f6e; --red:#c81e1e; }
+  * { box-sizing:border-box; }
+  body { font-family:'Rubik',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:20px; }
+  header { margin-bottom:12px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  p.sub { color:var(--muted); margin:4px 0 12px; font-size:14px; line-height:1.55; max-width:110ch; }
+  code.formula { background:#eef2f7; padding:2px 6px; border-radius:6px; font-size:13px; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin:14px 0; }
+  .controls label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  .controls input { font-family:inherit; font-size:14px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; min-width:170px; background:#fff; }
+  .controls .num-in { width:150px; }
+  .controls button { font-family:inherit; font-size:14px; padding:8px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  .controls button:hover { border-color:var(--accent); color:var(--accent); }
+  .controls button:disabled { opacity:.55; cursor:wait; }
+  .controls .checkline { display:flex; align-items:center; gap:8px; padding-bottom:9px; }
+  .controls .checkline input { min-width:0; width:18px; height:18px; margin:0; padding:0; accent-color:var(--accent); }
+  .controls .checkline label { margin:0; font-size:14px; color:var(--ink); }
+  .meta { font-size:12px; color:var(--muted); align-self:center; }
+  .tablebar { display:flex; justify-content:flex-end; margin:4px 0 8px; }
+  .colpick { position:relative; }
+  .colpick summary { cursor:pointer; font-size:13px; font-weight:600; border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 12px; list-style:none; user-select:none; }
+  .colpick summary::-webkit-details-marker { display:none; }
+  .colpick summary:hover { border-color:var(--accent); color:var(--accent); }
+  .colpick-menu { position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; min-width:210px; box-shadow:0 8px 24px rgba(16,24,40,.12); z-index:20; }
+  .colpick-menu label { display:flex; align-items:center; gap:8px; font-size:13.5px; padding:5px 2px; cursor:pointer; }
+  .colpick-menu input { width:16px; height:16px; accent-color:var(--accent); }
+  .table-scroll { overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin-top:10px; background:#fff; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; min-width:1180px; }
+  thead th { background:#111827; color:#fff; text-align:left; padding:10px 12px; cursor:pointer; white-space:nowrap; user-select:none; position:sticky; top:0; }
+  thead th small { display:block; font-weight:400; opacity:.7; font-size:11px; }
+  thead th.ref { background:#2f3a4a; }
+  tbody td.ref { background:#f2f5f9; }
+  tbody tr:nth-child(even) td.ref { background:#e9edf3; }
+  tbody tr:hover td.ref { background:#e2ebfa; }
+  thead th.sorted { background:var(--accent); }
+  tbody td { padding:9px 12px; border-top:1px solid var(--line); vertical-align:top; }
+  tbody tr:nth-child(even) { background:#fafbfc; }
+  tbody tr:hover { background:#eef5ff; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td.model { font-weight:500; }
+  .tag { display:inline-block; font-size:11px; color:#555; background:#eef2f7; border-radius:20px; padding:1px 8px; margin-left:8px; }
+  .cost { font-weight:700; }
+  .bar { height:5px; background:#e5e7eb; border-radius:4px; margin-top:6px; overflow:hidden; min-width:90px; }
+  .bar span { display:block; height:100%; background:var(--green); }
+  .bar.over span { background:var(--red); }
+  td small { color:var(--muted); }
+  footer { font-size:12px; color:var(--muted); line-height:1.6; margin-top:12px; max-width:130ch; }
+  a { color:var(--accent); }
+  .loading { padding:24px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Get the most value from OpenCode Go</h1>
+  <p class="sub">
+    Every model on the <a href="https://opencode.ai/v2/docs/console/go/">Go $10 plan</a> comes with a
+    different usage allowance, which makes them hard to compare. So this page lines them all up against
+    one everyday example: around 100 million tokens of coding work, where most of it reuses things the
+    model has already seen. Change the numbers below to match how you work — the whole table updates
+    instantly, all right here in your browser.
+  </p>
+  <div class="controls">
+    <div><label for="q">Search model</label><input id="q" type="search" placeholder="e.g. mimo, grok, haiku…" /></div>
+    <div><label for="tokens">Total input tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
+    <div><label for="hit">Cache hit rate %</label><input id="hit" class="num-in" type="number" value="97" min="0" max="99.99" step="0.5" /></div>
+    <div class="checkline"><input id="showFree" type="checkbox" checked /><label for="showFree">Show free models</label></div>
+    <div><button id="srcBtn" type="button" title="Fetch the latest Go-plan table from the OpenCode docs and update the table">↻ Refresh from source</button></div>
+    <div class="meta" id="summary"></div>
+    <div class="meta" id="srcStatus"></div>
+  </div>
+</header>
+<div class="tablebar">
+  <details class="colpick" id="colpick">
+    <summary>Columns ▾</summary>
+    <div class="colpick-menu" id="colpickMenu"></div>
+  </details>
+</div>
+<div class="table-scroll">
+<table id="t">
+  <thead><tr>
+    <th>Model ↕<small>click to sort</small></th>
+    <th>Cost ↕<small>$</small></th>
+    <th>% of $10 cash ↕</th>
+    <th>$10 subs needed ↕</th>
+    <th>Blocks / $10 ↕</th>
+    <th>% of allowance ↕<small>+ blocks per allowance</small></th>
+    <th>Max tokens / sub ↕<small>same hit rate</small></th>
+    <th class="ref">Input $/1M ↕</th>
+    <th class="ref">Cached-read $/1M ↕</th>
+    <th class="ref">Output $/1M ↕<small>ref only</small></th>
+    <th class="ref">Go allowance ↕<small>incl. with $10</small></th>
+  </tr></thead>
+  <tbody id="body"><tr><td colspan="11" class="loading">Loading prices…</td></tr></tbody>
+</table>
+</div>
+<footer>
+  <strong>How to read:</strong> “Cost” is dollars of allowance consumed by the workload above.
+  “% of $10 cash” = cost ÷ 10 (cash-equivalent). “% of allowance” = cost ÷ that model’s Go allowance
+  (e.g. $3.36 on a $60 allowance = 5.6%, ≈17.9 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one $10 subscription for that model.<br/>
+  <strong>Assumptions:</strong> input tokens only; output tokens excluded (coding agents are input-heavy and outputs vary).
+  Tiered rows (context-size / peak / off-peak) are listed separately as in the official table. Beam Free = $0 (limited time).
+  Prices are built into this page, so it works offline — just open the file.
+  Press “↻ Refresh from source” to fetch the latest Go-plan table from the
+  <a href="https://opencode.ai/v2/docs/console/go/">OpenCode Go pricing</a> docs;
+  the table updates in place and fresh prices are remembered for an hour.
+  To update the built-in snapshot itself, edit the <code>MODELS</code> list in <code>index.html</code>.
+  “Tokens / sub” is the total input tokens the subscription’s allowance buys at the current hit rate (allowance ÷ blended $/1M price; updates when you change the hit rate).
+  Form selections (search, tokens, hit rate, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
+</footer>
+<script>
+"use strict";
+/* Fully client-side. No server, no build: prices live in MODELS below and all
+   math + rendering happens here. The refresh button fetches the live docs page
+   (via a text proxy when the browser blocks cross-site requests). */
+const PREFS_KEY = "go-prefs-v2"; // v2: column order changed, old indexes no longer valid
+const SOURCE_URL = "https://opencode.ai/v2/docs/console/go/";
+const PROXY_URL = "https://r.jina.ai/https://opencode.ai/v2/docs/console/go/";
+const LIVE_KEY = "go-live-v1";
+const LIVE_TTL_MS = 3600 * 1000; // remember refreshed prices for 1 hour
+const SUB_PRICE = 10;
+
+// Toggleable columns (index = position in table, Model col 0 always shown)
+const COLUMNS = [
+  { key: "cost", label: "Cost" },
+  { key: "cashpct", label: "% of $10 cash" },
+  { key: "subs", label: "$10 subs needed" },
+  { key: "per10", label: "Blocks / $10" },
+  { key: "allow", label: "% of allowance" },
+  { key: "maxtok", label: "Max tokens / sub" },
+  { key: "input", label: "Input $/1M" },
+  { key: "cached", label: "Cached-read $/1M" },
+  { key: "output", label: "Output $/1M" },
+  { key: "limit", label: "Go allowance" },
+];
+
+function defaultPrefs() {
+  const cols = {};
+  COLUMNS.forEach((c) => { cols[c.key] = true; });
+  return { tokensM: 100, hit: 97, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 };
+}
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return defaultPrefs();
+    const p = JSON.parse(raw);
+    const d = defaultPrefs();
+    return {
+      tokensM: Number(p.tokensM) > 0 ? Number(p.tokensM) : d.tokensM,
+      hit: p.hit === undefined || p.hit === null || isNaN(Number(p.hit)) ? d.hit : Number(p.hit),
+      q: typeof p.q === "string" ? p.q : "",
+      showFree: p.showFree === undefined ? true : !!p.showFree,
+      cols: Object.assign(d.cols, p.cols || {}),
+      sortCol: Number.isInteger(p.sortCol) && p.sortCol >= 0 && p.sortCol <= COLUMNS.length ? p.sortCol : d.sortCol,
+      sortDir: p.sortDir === -1 ? -1 : 1,
+    };
+  } catch { return defaultPrefs(); }
+}
+const PREFS = loadPrefs();
+
+function savePrefs() {
+  try {
+    PREFS.tokensM = Number(tokEl.value) || 100;
+    PREFS.hit = hitEl.value === "" ? PREFS.hit : Number(hitEl.value);
+    PREFS.q = q.value || "";
+    PREFS.showFree = showFreeEl.checked;
+    localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS));
+  } catch {}
+}
+
+let MODELS = [
+  {"model":"GLM-5.3-Flash","input":0.15,"output":0.5,"cached":0.03,"limit":60},
+  {"model":"GLM-5.3","input":1.4,"output":4.4,"cached":0.26,"limit":15},
+  {"model":"GLM-5.2","input":1.4,"output":4.4,"cached":0.26,"limit":60},
+  {"model":"Kimi K3.1 Pro","input":2.0,"output":10.0,"cached":0.2,"limit":15},
+  {"model":"Kimi K3","input":3.0,"output":15.0,"cached":0.3,"limit":15},
+  {"model":"Kimi K2.7 Code","input":0.95,"output":4.0,"cached":0.19,"limit":60},
+  {"model":"LongCat-2.0","input":0.3,"output":1.2,"cached":0.006,"limit":60},
+  {"model":"Step 5 Preview","input":1.0,"output":2.7,"cached":0.1,"limit":15},
+  {"model":"Beam Free","input":0,"output":0,"cached":0,"limit":null,"note":"limited time"},
+  {"model":"MiMo-V2.6-Flash","input":0.14,"output":0.28,"cached":0.0028,"limit":60},
+  {"model":"MiMo-V2.6-Pro","input":0.435,"output":0.87,"cached":0.003625,"limit":15},
+  {"model":"MiMo-V2.5","input":0.14,"output":0.28,"cached":0.0028,"limit":60},
+  {"model":"MiMo-V2.5-Pro","input":0.435,"output":0.87,"cached":0.003625,"limit":15},
+  {"model":"MiniMax M3.1 Flash","input":0.15,"output":0.6,"cached":0.015,"limit":20},
+  {"model":"MiniMax M3","input":0.3,"output":1.2,"cached":0.06,"limit":60},
+  {"model":"Muse Spark 1.3 Contributor","input":0.1,"output":0.2,"cached":0.002,"limit":60},
+  {"model":"Muse Spark 1.2 Contributor","input":0.1,"output":0.2,"cached":0.002,"limit":60},
+  {"model":"Qwen3.8 Max","input":2.0,"output":6.0,"cached":0.25,"limit":15},
+  {"model":"Qwen3.8 Flash","input":0.15,"output":0.47,"cached":0.016,"limit":30},
+  {"model":"Qwen3.7 Plus (≤ 256K)","input":0.4,"output":1.6,"cached":0.04,"limit":60},
+  {"model":"Qwen3.7 Plus (> 256K)","input":1.2,"output":4.8,"cached":0.12,"limit":60},
+  {"model":"DeepSeek V4.1 Flash (Off-Peak)","input":0.15,"output":0.6,"cached":0.003,"limit":80},
+  {"model":"DeepSeek V4.1 Flash (Peak)","input":0.3,"output":1.2,"cached":0.006,"limit":80},
+  {"model":"DeepSeek V4 Pro (Off-Peak)","input":0.66,"output":1.98,"cached":0.022,"limit":15},
+  {"model":"DeepSeek V4 Pro (Peak)","input":1.32,"output":3.96,"cached":0.044,"limit":15},
+  {"model":"Hy4 preview","input":0.834,"output":2.501,"cached":0.042,"limit":30},
+  {"model":"Hy3","input":0.14,"output":0.58,"cached":0.035,"limit":60},
+  {"model":"Grok 4.7 (≤ 200K)","input":2.0,"output":6.0,"cached":0.5,"limit":15},
+  {"model":"Grok 4.7 (> 200K)","input":4.0,"output":12.0,"cached":1.0,"limit":15},
+  {"model":"GPT 6 Luna (≤ 272K)","input":0.1,"output":0.5,"cached":0.01,"limit":15},
+  {"model":"GPT 6 Luna (> 272K)","input":0.2,"output":0.75,"cached":0.02,"limit":15},
+  {"model":"GPT 5.6 Luna (≤ 272K)","input":0.2,"output":1.2,"cached":0.02,"limit":15},
+  {"model":"GPT 5.6 Luna (> 272K)","input":0.4,"output":1.8,"cached":0.04,"limit":15},
+  {"model":"Claude Haiku 5.5 (≤ 100K)","input":0.1,"output":0.5,"cached":0.01,"limit":15},
+  {"model":"Claude Haiku 5.5 (> 100K)","input":0.5,"output":2.5,"cached":0.05,"limit":15},
+  {"model":"Gemini 4 Argon (50% off)","input":2.0,"output":10.0,"cached":0.1,"limit":30,"note":"50% off thru Nov 30, 2026"}
+];
+
+const q = document.getElementById("q");
+const tokEl = document.getElementById("tokens");
+const hitEl = document.getElementById("hit");
+const showFreeEl = document.getElementById("showFree");
+const tbody = document.getElementById("body");
+const summary = document.getElementById("summary");
+const colpickMenu = document.getElementById("colpickMenu");
+const srcBtn = document.getElementById("srcBtn");
+const srcStatus = document.getElementById("srcStatus");
+
+let sortCol = PREFS.sortCol; // restored from localStorage; render() builds rows cheapest-first
+let sortDir = PREFS.sortDir; // 1 = ascending ▲, -1 = descending ▼
+
+/* Prices are embedded in MODELS above — nothing to fetch, nothing to cache. */
+
+function ageText(t) {
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  return mins < 1 ? "just now" : mins === 1 ? "1 min ago" : mins + " mins ago";
+}
+
+function setSrcStatus(s) { srcStatus.textContent = s; }
+
+// A price cell is "$0.15", "Free", or a struck-through discount like
+// "~~$4.00~~ $2.00" (take the last = current price).
+function parsePrice(cell) {
+  if (!cell || /free/i.test(cell)) return 0;
+  const found = cell.replace(/~/g, "").match(/\$?\s*\d[\d,]*(?:\.\d+)?/g);
+  if (!found) return 0;
+  const v = parseFloat(found[found.length - 1].replace(/[$\s,]/g, ""));
+  return isNaN(v) ? 0 : v;
+}
+
+function parseLimit(cell) {
+  if (!cell || /unlimited/i.test(cell)) return null;
+  return parsePrice(cell);
+}
+
+function cleanModelName(s) {
+  return String(s).replace(/\*\*/g, "").trim().replace(/\s+tokens\)$/i, ")");
+}
+
+function rowsFromCells(header, bodyRows) {
+  const head = header.map((h) => h.toLowerCase());
+  if (!head.some((h) => h.includes("monthly limit")) || !head.includes("input")) return null;
+  const iInput = head.indexOf("input"), iOutput = head.indexOf("output");
+  const iCached = head.findIndex((h) => h.includes("cached") && h.includes("read"));
+  const iLimit = head.findIndex((h) => h.includes("monthly limit"));
+  if ([iInput, iOutput, iCached, iLimit].some((i) => i < 0)) return null;
+  const isSep = (cells) => cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c.replace(/\s/g, "")));
+  const rows = [];
+  for (const r of bodyRows) {
+    if (r.length < header.length || isSep(r)) continue;
+    const name = cleanModelName(r[0]);
+    if (!name || isSep([name])) continue;
+    rows.push({
+      model: name,
+      input: parsePrice(r[iInput]),
+      output: parsePrice(r[iOutput]),
+      cached: parsePrice(r[iCached]),
+      limit: parseLimit(r[iLimit]),
+    });
+  }
+  return rows.length >= 10 ? rows : null;
+}
+
+// Parse the markdown returned by the text proxy: first pipe-table whose
+// header has Input + Monthly limit columns is the Go-plan pricing table.
+function parseSourceMarkdown(md) {
+  const tables = [];
+  let cur = null;
+  for (const line of String(md).split("\n")) {
+    if (/^\s*\|/.test(line)) {
+      if (!cur) cur = [];
+      cur.push(line.split("|").slice(1, -1).map((c) => c.trim()));
+    } else if (cur) { tables.push(cur); cur = null; }
+  }
+  if (cur) tables.push(cur);
+  for (const t of tables) {
+    const rows = rowsFromCells(t[0], t.slice(1));
+    if (rows) return rows;
+  }
+  throw new Error("pricing table not found in source page");
+}
+
+// Parse the docs HTML itself (used when the browser can fetch it directly).
+// The Go and Go Plus tables share the same headers, so pick the one with the
+// smaller total allowance: that is the Go ($10) plan.
+function parseSourceHtml(htmlText) {
+  const doc = new DOMParser().parseFromString(htmlText, "text/html");
+  const cands = [];
+  doc.querySelectorAll("table").forEach((t) => {
+    const head = Array.from(t.querySelectorAll("th")).map((th) => th.textContent.trim());
+    const bodyRows = Array.from(t.querySelectorAll("tr")).slice(1).map((tr) =>
+      Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim()));
+    const rows = rowsFromCells(head, bodyRows);
+    if (rows) cands.push({ rows, total: rows.reduce((s, r) => s + (r.limit || 0), 0) });
+  });
+  if (!cands.length) throw new Error("pricing table not found in source page");
+  cands.sort((a, b) => a.total - b.total);
+  return cands[0].rows;
+}
+
+function readLive() {
+  try {
+    const raw = localStorage.getItem(LIVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.t !== "number" || !Array.isArray(parsed.data)) return null;
+    if (Date.now() - parsed.t > LIVE_TTL_MS) return null; // expired
+    return parsed;
+  } catch { return null; }
+}
+
+let liveInfo = null;
+
+function applyLiveData(rows, via) {
+  const oldNotes = {};
+  MODELS.forEach((m) => { if (m.note) oldNotes[m.model] = m.note; });
+  rows.forEach((r) => { if (oldNotes[r.model]) r.note = oldNotes[r.model]; });
+  MODELS = rows;
+  liveInfo = { t: Date.now(), via };
+  try { localStorage.setItem(LIVE_KEY, JSON.stringify({ t: liveInfo.t, via, data: rows })); } catch {}
+  render();
+  setSrcStatus("Prices: live from opencode.ai (" + via + ", just now) · " + rows.length + " models");
+  srcBtn.disabled = false;
+}
+
+async function refreshFromSource() {
+  srcBtn.disabled = true;
+  const attempts = [
+    { url: SOURCE_URL, via: "direct" },
+    { url: PROXY_URL, via: "text proxy" },
+  ];
+  let lastErr = null;
+  for (const a of attempts) {
+    try {
+      setSrcStatus("Fetching latest prices (" + a.via + ")…");
+      const res = await fetch(a.url, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      const rows = a.via === "direct" ? parseSourceHtml(text) : parseSourceMarkdown(text);
+      applyLiveData(rows, a.via);
+      return;
+    } catch (err) { lastErr = err; }
+  }
+  setSrcStatus("Could not refresh (" + (lastErr && lastErr.message ? lastErr.message : "network blocked") + ") — keeping current prices.");
+  srcBtn.disabled = false;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function money(n) {
+  if (n === 0) return "$0.00";
+  if (n < 1) return "$" + n.toFixed(3);
+  return "$" + n.toFixed(2);
+}
+
+function fmtTokens(n) {
+  if (!isFinite(n)) return "∞";
+  if (n >= 1e9) {
+    const b = n / 1e9;
+    return (b >= 100 ? b.toFixed(1) : b.toFixed(2)) + "B";
+  }
+  const m = n / 1e6;
+  if (m >= 100) return m.toFixed(0) + "M";
+  if (m >= 10) return m.toFixed(1) + "M";
+  return m.toFixed(2) + "M";
+}
+
+function isFree(m) { return m.input === 0 && m.cached === 0; }
+
+function currentParams() {
+  const T = Math.max(1e6, (Number(tokEl.value) || 100) * 1e6);
+  const h = Math.min(0.9999, Math.max(0, (Number(hitEl.value) || 97) / 100));
+  return { T, h, freshM: T * (1 - h) / 1e6, cachedM: T * h / 1e6 };
+}
+
+function hiddenColIndexes() {
+  const hidden = new Set();
+  COLUMNS.forEach((c, i) => { if (!PREFS.cols[c.key]) hidden.add(i + 1); });
+  return hidden;
+}
+
+function applyColVisibility() {
+  const hidden = hiddenColIndexes();
+  document.querySelectorAll("#t thead th").forEach((th, i) => {
+    th.style.display = hidden.has(i) ? "none" : "";
+  });
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    Array.from(tr.cells).forEach((td, i) => { td.style.display = hidden.has(i) ? "none" : ""; });
+  });
+}
+
+function render() {
+  const { T, h, freshM, cachedM } = currentParams();
+  const query = (q.value || "").toLowerCase();
+  const showFree = showFreeEl.checked;
+  const rows = MODELS
+    .map((m) => {
+      const cost = freshM * m.input + cachedM * m.cached;
+      return { m, cost };
+    })
+    .sort((a, b) => a.cost - b.cost)
+    .filter(({ m }) => (showFree || !isFree(m)) && m.model.toLowerCase().includes(query));
+
+  tbody.innerHTML = rows.map(({ m, cost }) => {
+    const cashPct = cost / SUB_PRICE * 100;
+    const subs = cost / SUB_PRICE;
+    const per10 = cost > 0 ? SUB_PRICE / cost : Infinity;
+    const allowPct = m.limit === null || m.limit === undefined ? null : cost / m.limit * 100;
+    const barW = allowPct === null ? 0 : Math.min(100, allowPct);
+    const blended = (1 - h) * m.input + h * m.cached; // $ per 1M tokens at the same hit rate
+    const maxTok = (m.limit === null || m.limit === undefined || blended <= 0) ? Infinity : m.limit / blended * 1e6;
+    return "<tr>" +
+      '<td class="model">' + esc(m.model) + (m.note ? '<span class="tag">' + esc(m.note) + "</span>" : "") + "</td>" +
+      '<td class="num cost">' + money(cost) + "</td>" +
+      '<td class="num">' + (cost === 0 ? "0%" : cashPct.toFixed(1) + "%") + "</td>" +
+      '<td class="num">' + (cost === 0 ? "0" : subs.toFixed(2) + "×") + "</td>" +
+      '<td class="num">' + (!isFinite(per10) ? "∞" : per10.toFixed(1) + "×") + "</td>" +
+      '<td class="num">' + (allowPct === null ? "0%" : allowPct.toFixed(1) + "%") +
+        '<div class="bar' + (allowPct !== null && allowPct >= 100 ? " over" : "") + '"><span style="width:' + barW + '%"></span></div>' +
+        "<small>" + (allowPct === null ? "free" : (m.limit / cost).toFixed(1) + " blocks / allowance") + "</small></td>" +
+      '<td class="num" data-val="' + (isFinite(maxTok) ? String(Math.round(maxTok)) : "inf") + '">' + fmtTokens(maxTok) + "</td>" +
+      '<td class="num ref">$' + m.input + "</td>" +
+      '<td class="num ref">$' + m.cached + "</td>" +
+      '<td class="num ref">$' + m.output + "</td>" +
+      '<td class="num ref">' + (m.limit === null || m.limit === undefined ? "Unlimited" : "$" + m.limit) + "</td>" +
+      "</tr>";
+  }).join("");
+
+  applyColVisibility();
+  sortTbody();
+  paintSort();
+
+  const mTok = T / 1e6;
+  const mTokStr = (Number.isInteger(mTok) ? mTok.toString() : String(Math.round(mTok * 10) / 10)) + "M";
+  summary.textContent = rows.length + " models · " + mTokStr + " tokens @ " +
+    (h * 100).toFixed(1) + "% hit · " + freshM.toFixed(1) + "M fresh + " + cachedM.toFixed(1) + "M cached";
+}
+
+function boot() {
+  const live = readLive();
+  if (live) {
+    MODELS = live.data;
+    liveInfo = { t: live.t, via: live.via || "cache" };
+    setSrcStatus("Prices: refreshed from opencode.ai " + ageText(live.t) + " · " + live.data.length + " models");
+  } else {
+    setSrcStatus("Prices: built-in snapshot · press ↻ Refresh from source for the latest");
+  }
+  render();
+}
+
+function buildColChooser() {
+  colpickMenu.innerHTML = "";
+  COLUMNS.forEach((c) => {
+    const lab = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = !!PREFS.cols[c.key];
+    cb.addEventListener("change", () => {
+      PREFS.cols[c.key] = cb.checked;
+      try { localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS)); } catch {}
+      applyColVisibility();
+    });
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(c.label));
+    colpickMenu.appendChild(lab);
+  });
+}
+
+function restorePrefs() {
+  tokEl.value = PREFS.tokensM;
+  hitEl.value = PREFS.hit;
+  q.value = PREFS.q;
+  showFreeEl.checked = PREFS.showFree;
+}
+
+[q, tokEl, hitEl].forEach((el) => el.addEventListener("input", () => { render(); savePrefs(); }));
+showFreeEl.addEventListener("change", () => { render(); savePrefs(); });
+srcBtn.addEventListener("click", refreshFromSource);
+
+// close column chooser on outside click / Escape
+document.addEventListener("click", (e) => {
+  const det = document.getElementById("colpick");
+  if (det.open && !det.contains(e.target)) det.removeAttribute("open");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("colpick").removeAttribute("open");
+});
+
+function paintSort() {
+  document.querySelectorAll("#t thead th").forEach((th, i) => {
+    const node = th.firstChild;
+    const base = node.textContent.replace(/ [▲▼↕]$/, "");
+    node.textContent = base + " " + (i === sortCol ? (sortDir > 0 ? "▲" : "▼") : "↕");
+    th.classList.toggle("sorted", i === sortCol);
+  });
+}
+
+function sortTbody() {
+  const rows = Array.from(tbody.rows);
+  if (rows.length === 0 || rows[0].cells.length === 1) return; // loading row
+  const idx = sortCol, dir = sortDir;
+  const numeric = idx > 0;
+  rows.sort((a, b) => {
+    if (!numeric) return a.cells[idx].textContent.localeCompare(b.cells[idx].textContent) * dir;
+    const clean = (cell) => {
+      if (cell.dataset.val !== undefined && cell.dataset.val !== "") {
+        if (cell.dataset.val === "inf") return Infinity;
+        const dv = parseFloat(cell.dataset.val);
+        if (!isNaN(dv)) return dv;
+      }
+      const t = cell.textContent;
+      if (t.includes("∞")) return Infinity;
+      const v = parseFloat(t.replace(/[^0-9.-]/g, ""));
+      return isNaN(v) ? 0 : v;
+    };
+    return (clean(a.cells[idx]) - clean(b.cells[idx])) * dir;
+  });
+  rows.forEach((r) => tbody.appendChild(r));
+}
+
+document.querySelectorAll("thead th").forEach((th, idx) => {
+  th.addEventListener("click", () => {
+    if (sortCol === idx) sortDir *= -1;
+    else { sortCol = idx; sortDir = 1; }
+    PREFS.sortCol = sortCol;
+    PREFS.sortDir = sortDir;
+    savePrefs();
+    sortTbody();
+    paintSort();
+  });
+});
+
+restorePrefs();
+buildColChooser();
+boot();
+</script>
+</body>
+</html>
