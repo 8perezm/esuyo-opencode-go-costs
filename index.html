@@ -26,6 +26,10 @@
   .controls .checkline { display:flex; align-items:center; gap:8px; padding-bottom:9px; }
   .controls .checkline input { min-width:0; width:18px; height:18px; margin:0; padding:0; accent-color:var(--accent); }
   .controls .checkline label { margin:0; font-size:14px; color:var(--ink); }
+  .plan-group { display:flex; align-items:center; gap:10px; padding-bottom:9px; }
+  .plan-group .plan-title { font-size:12px; color:var(--muted); }
+  .plan-group label { display:flex; align-items:center; gap:6px; font-size:14px; color:var(--ink); cursor:pointer; margin:0; }
+  .plan-group input { min-width:0; width:16px; height:16px; margin:0; padding:0; accent-color:var(--accent); }
   .meta { font-size:12px; color:var(--muted); align-self:center; }
   .tablebar { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin:4px 0 8px; }
   .tablesearch { display:flex; align-items:center; gap:8px; }
@@ -67,13 +71,20 @@
 <header>
   <h1>Get the most value from OpenCode Go</h1>
   <p class="sub">
-    Every model on the <a href="https://opencode.ai/v2/docs/console/go/">Go $10 plan</a> comes with a
-    different usage allowance, which makes them hard to compare. So this page lines them all up against
-    one everyday example: around 100 million tokens of coding work, where most of it reuses things the
-    model has already seen. Change the numbers below to match how you work — the whole table updates
+    Every model on <a href="https://opencode.ai/v2/docs/console/go/">OpenCode Go ($10/mo)</a> and
+    <a href="https://opencode.ai/v2/docs/console/go/">OpenCode Go Plus ($40/mo)</a> comes with a
+    different usage allowance, which makes them hard to compare. Token prices are the same on both
+    plans — only the included monthly allowance differs. Pick a plan below and this page lines all
+    models up against one everyday example: around 100 million tokens of coding work, where most of
+    it reuses things the model has already seen. Change the numbers to match how you work — the whole table updates
     instantly, all right here in your browser.
   </p>
   <div class="controls">
+    <div class="plan-group" role="radiogroup" aria-label="Subscription plan">
+      <span class="plan-title" id="planTitle">Plan</span>
+      <label><input type="radio" name="plan" value="go" checked /> Opencode Go · $10</label>
+      <label><input type="radio" name="plan" value="plus" /> Opencode Go Plus · $40</label>
+    </div>
     <div><label for="tokens">Total tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
     <div><label for="hit">Cache hit rate %</label><input id="hit" class="num-in" type="number" value="97" min="0" max="99.99" step="0.5" /></div>
     <div><label for="outPct">Output % of total tokens</label><input id="outPct" class="num-in" type="number" value="0.8" min="0" max="90" step="0.1" /></div>
@@ -94,82 +105,119 @@
 <table id="t">
   <thead><tr>
     <th>Model ↕<small>click to sort</small></th>
-    <th>Cost ↕<small>$</small></th>
-    <th>% of $10 cash ↕</th>
-    <th>$10 subs needed ↕</th>
-    <th>Blocks / $10 ↕</th>
+    <th>Sub cost ↕<small>$ of plan</small></th>
+    <th>Cost ↕<small>$ allowance</small></th>
+    <th id="thCash">% of $10 cash ↕</th>
+    <th id="thSubs">$10 subs needed ↕</th>
+    <th id="thPer">Blocks / $10 ↕</th>
     <th>% of allowance ↕<small>+ blocks per allowance</small></th>
     <th>Max tokens / sub ↕<small>same hit rate</small></th>
     <th class="ref">Input $/1M ↕</th>
     <th class="ref">Cached-read $/1M ↕</th>
     <th class="ref">Output $/1M ↕<small>ref only</small></th>
-    <th class="ref">Go allowance ↕<small>incl. with $10</small></th>
+    <th class="ref" id="thLimit">Go allowance ↕<small>incl. with $10</small></th>
   </tr></thead>
-  <tbody id="body"><tr><td colspan="11" class="loading">Loading prices…</td></tr></tbody>
+  <tbody id="body"><tr><td colspan="12" class="loading">Loading prices…</td></tr></tbody>
 </table>
 </div>
 <footer>
   <strong>How to read:</strong> “Cost” is dollars of allowance consumed by the workload above
   (input at fresh/cached rates plus output at the full output rate).
-  “% of $10 cash” = cost ÷ 10 (cash-equivalent). “% of allowance” = cost ÷ that model’s Go allowance
-  (e.g. $3.73 on a $60 allowance = 6.2%, ≈16.1 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one $10 subscription for that model.<br/>
+  “Sub cost” is the pro-rata share of your subscription that workload burns:
+  cost ÷ allowance × plan price
+  (e.g. $3.73 on a $60 Go allowance = $3.73 ÷ $60 × $10 ≈ $0.62; on Go Plus the same
+  workload against a $180 allowance = $3.73 ÷ $180 × $40 ≈ $0.83).
+  “% of cash” = cost ÷ plan price ($10 for Go, $40 for Go Plus; cash-equivalent). “% of allowance” = cost ÷ that model’s allowance for the selected plan
+  (e.g. $3.73 on a $60 Go allowance = 6.2%, ≈16.1 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one subscription for that model.<br/>
   <strong>Assumptions:</strong> “Total tokens” splits into input and output by “Output %”;
   output tokens are always charged at the full output rate (no cache discount on generated text).
   Tiered rows (context-size / peak / off-peak) are listed separately as in the official table. Beam Free = $0 (limited time).
   Prices are built into this page, so it works offline — just open the file.
-  Press “↻ Refresh from source” to fetch the latest Go-plan table from the
+  Press “↻ Refresh from source” to fetch the latest Go / Go Plus tables from the
   <a href="https://opencode.ai/v2/docs/console/go/">OpenCode Go pricing</a> docs;
   the table updates in place and fresh prices are remembered for an hour.
-  To update the built-in snapshot itself, edit the <code>MODELS</code> list in <code>index.html</code>.
+  To update the built-in snapshot itself, edit the <code>MODELS</code> list in <code>index.html</code> (<code>limit</code> = Go, <code>limitPlus</code> = Go Plus).
   “Tokens / sub” is the total tokens the subscription’s allowance buys at the current hit rate and output share (allowance ÷ blended $/1M price; updates when you change either).
-  Form selections (search, tokens, hit rate, output %, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
+  Form selections (plan, search, tokens, hit rate, output %, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
 </footer>
 <script>
 "use strict";
 /* Fully client-side. No server, no build: prices live in MODELS below and all
    math + rendering happens here. The refresh button fetches the live docs page
    (via a text proxy when the browser blocks cross-site requests). */
-const PREFS_KEY = "go-prefs-v3"; // v3: tokens = total (in+out), new outPct field
+const PREFS_KEY = "go-prefs-v6"; // v6: "Cost" visible again
+const LEGACY_PREFS_KEYS = ["go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
 const SOURCE_URL = "https://opencode.ai/v2/docs/console/go/";
 const PROXY_URL = "https://r.jina.ai/https://opencode.ai/v2/docs/console/go/";
-const LIVE_KEY = "go-live-v1";
+const LIVE_KEY = "go-live-v2"; // v2: stores { go, plus } rows per plan
 const LIVE_TTL_MS = 3600 * 1000; // remember refreshed prices for 1 hour
-const SUB_PRICE = 10;
+const PLANS = {
+  go: { id: "go", short: "Go", price: 10 },
+  plus: { id: "plus", short: "Go Plus", price: 40 },
+};
+function planOf(id) { return PLANS[id] === undefined ? PLANS.go : PLANS[id]; }
 
 // Toggleable columns (index = position in table, Model col 0 always shown)
 const COLUMNS = [
+  { key: "subcost", label: "Sub cost" },
   { key: "cost", label: "Cost" },
-  { key: "cashpct", label: "% of $10 cash" },
-  { key: "subs", label: "$10 subs needed" },
-  { key: "per10", label: "Blocks / $10" },
+  { key: "cashpct", label: "% of cash" },
+  { key: "subs", label: "Subs needed" },
+  { key: "per10", label: "Blocks per sub" },
   { key: "allow", label: "% of allowance" },
   { key: "maxtok", label: "Max tokens / sub" },
   { key: "input", label: "Input $/1M" },
   { key: "cached", label: "Cached-read $/1M" },
   { key: "output", label: "Output $/1M" },
-  { key: "limit", label: "Go allowance" },
+  { key: "limit", label: "Plan allowance" },
 ];
 
 function defaultPrefs() {
   const cols = {};
   COLUMNS.forEach((c) => { cols[c.key] = true; });
-  return { tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 };
+  return { plan: "go", tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 }; // sort = Sub cost ↑
 }
 
 function loadPrefs() {
+  const parse = (raw) => {
+    try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+  };
+  let p = null;
+  let legacyGen = 0; // 0 = current, 5 = v5 (same order), 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
+  try { p = parse(localStorage.getItem(PREFS_KEY)); } catch { p = null; }
+  if (!p) {
+    for (const k of LEGACY_PREFS_KEYS) {
+      try {
+        const lp = parse(localStorage.getItem(k));
+        if (lp) { p = lp; legacyGen = k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
+      } catch {}
+    }
+  }
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return defaultPrefs();
-    const p = JSON.parse(raw);
+    if (!p) return defaultPrefs();
     const d = defaultPrefs();
+    let sortCol = d.sortCol;
+    if (Number.isInteger(p.sortCol) && p.sortCol >= 0 && p.sortCol <= COLUMNS.length) {
+      sortCol = p.sortCol;
+      if (legacyGen === 3 && sortCol >= 2) sortCol += 1; // v3->v4: subcost was inserted at index 2
+      if (legacyGen === 3 || legacyGen === 4) {
+        // v5 order swap: index 1 (cost) <-> index 2 (subcost), applied after any v3 shift
+        if (sortCol === 1) sortCol = 2;
+        else if (sortCol === 2) sortCol = 1;
+      }
+      if (sortCol > COLUMNS.length) sortCol = d.sortCol;
+    }
+    const cols = Object.assign(d.cols, p.cols || {});
+    if (legacyGen !== 0) cols.cost = true; // "Cost" visible again; toggle via Columns ▾
     return {
+      plan: p.plan === "plus" ? "plus" : "go",
       tokensM: Number(p.tokensM) > 0 ? Number(p.tokensM) : d.tokensM,
       hit: p.hit === undefined || p.hit === null || isNaN(Number(p.hit)) ? d.hit : Number(p.hit),
       outPct: p.outPct === undefined || p.outPct === null || isNaN(Number(p.outPct)) ? d.outPct : Math.min(90, Math.max(0, Number(p.outPct))),
       q: typeof p.q === "string" ? p.q : "",
       showFree: p.showFree === undefined ? true : !!p.showFree,
-      cols: Object.assign(d.cols, p.cols || {}),
-      sortCol: Number.isInteger(p.sortCol) && p.sortCol >= 0 && p.sortCol <= COLUMNS.length ? p.sortCol : d.sortCol,
+      cols,
+      sortCol,
       sortDir: p.sortDir === -1 ? -1 : 1,
     };
   } catch { return defaultPrefs(); }
@@ -178,6 +226,7 @@ const PREFS = loadPrefs();
 
 function savePrefs() {
   try {
+    PREFS.plan = document.querySelector('input[name="plan"]:checked')?.value === "plus" ? "plus" : "go";
     PREFS.tokensM = Number(tokEl.value) || 100;
     PREFS.hit = hitEl.value === "" ? PREFS.hit : Number(hitEl.value);
     PREFS.outPct = outPctEl.value === "" ? PREFS.outPct : Math.min(90, Math.max(0, Number(outPctEl.value)));
@@ -188,43 +237,50 @@ function savePrefs() {
 }
 
 let MODELS = [
-  {"model":"GLM-5.3-Flash","input":0.15,"output":0.5,"cached":0.03,"limit":60},
-  {"model":"GLM-5.3","input":1.4,"output":4.4,"cached":0.26,"limit":15},
-  {"model":"GLM-5.2","input":1.4,"output":4.4,"cached":0.26,"limit":60},
-  {"model":"Kimi K3.1 Pro","input":2.0,"output":10.0,"cached":0.2,"limit":15},
-  {"model":"Kimi K3","input":3.0,"output":15.0,"cached":0.3,"limit":15},
-  {"model":"Kimi K2.7 Code","input":0.95,"output":4.0,"cached":0.19,"limit":60},
-  {"model":"LongCat-2.0","input":0.3,"output":1.2,"cached":0.006,"limit":60},
-  {"model":"Step 5 Preview","input":1.0,"output":2.7,"cached":0.1,"limit":15},
-  {"model":"Beam Free","input":0,"output":0,"cached":0,"limit":null,"note":"limited time"},
-  {"model":"MiMo-V2.6-Flash","input":0.14,"output":0.28,"cached":0.0028,"limit":60},
-  {"model":"MiMo-V2.6-Pro","input":0.435,"output":0.87,"cached":0.003625,"limit":15},
-  {"model":"MiMo-V2.5","input":0.14,"output":0.28,"cached":0.0028,"limit":60},
-  {"model":"MiMo-V2.5-Pro","input":0.435,"output":0.87,"cached":0.003625,"limit":15},
-  {"model":"MiniMax M3.1 Flash","input":0.15,"output":0.6,"cached":0.015,"limit":20},
-  {"model":"MiniMax M3","input":0.3,"output":1.2,"cached":0.06,"limit":60},
-  {"model":"Muse Spark 1.3 Contributor","input":0.1,"output":0.2,"cached":0.002,"limit":60},
-  {"model":"Muse Spark 1.2 Contributor","input":0.1,"output":0.2,"cached":0.002,"limit":60},
-  {"model":"Qwen3.8 Max","input":2.0,"output":6.0,"cached":0.25,"limit":15},
-  {"model":"Qwen3.8 Flash","input":0.15,"output":0.47,"cached":0.016,"limit":30},
-  {"model":"Qwen3.7 Plus (≤ 256K)","input":0.4,"output":1.6,"cached":0.04,"limit":60},
-  {"model":"Qwen3.7 Plus (> 256K)","input":1.2,"output":4.8,"cached":0.12,"limit":60},
-  {"model":"DeepSeek V4.1 Flash (Off-Peak)","input":0.15,"output":0.6,"cached":0.003,"limit":80},
-  {"model":"DeepSeek V4.1 Flash (Peak)","input":0.3,"output":1.2,"cached":0.006,"limit":80},
-  {"model":"DeepSeek V4 Pro (Off-Peak)","input":0.66,"output":1.98,"cached":0.022,"limit":15},
-  {"model":"DeepSeek V4 Pro (Peak)","input":1.32,"output":3.96,"cached":0.044,"limit":15},
-  {"model":"Hy4 preview","input":0.834,"output":2.501,"cached":0.042,"limit":30},
-  {"model":"Hy3","input":0.14,"output":0.58,"cached":0.035,"limit":60},
-  {"model":"Grok 4.7 (≤ 200K)","input":2.0,"output":6.0,"cached":0.5,"limit":15},
-  {"model":"Grok 4.7 (> 200K)","input":4.0,"output":12.0,"cached":1.0,"limit":15},
-  {"model":"GPT 6 Luna (≤ 272K)","input":0.1,"output":0.5,"cached":0.01,"limit":15},
-  {"model":"GPT 6 Luna (> 272K)","input":0.2,"output":0.75,"cached":0.02,"limit":15},
-  {"model":"GPT 5.6 Luna (≤ 272K)","input":0.2,"output":1.2,"cached":0.02,"limit":15},
-  {"model":"GPT 5.6 Luna (> 272K)","input":0.4,"output":1.8,"cached":0.04,"limit":15},
-  {"model":"Claude Haiku 5.5 (≤ 100K)","input":0.1,"output":0.5,"cached":0.01,"limit":15},
-  {"model":"Claude Haiku 5.5 (> 100K)","input":0.5,"output":2.5,"cached":0.05,"limit":15},
-  {"model":"Gemini 4 Argon (50% off)","input":2.0,"output":10.0,"cached":0.1,"limit":30,"note":"50% off thru Nov 30, 2026"}
+  {"model":"GLM-5.3-Flash","input":0.15,"output":0.5,"cached":0.03,"limit":60,"limitPlus":180},
+  {"model":"GLM-5.3","input":1.4,"output":4.4,"cached":0.26,"limit":15,"limitPlus":120},
+  {"model":"GLM-5.2","input":1.4,"output":4.4,"cached":0.26,"limit":60,"limitPlus":180},
+  {"model":"Kimi K3.1 Pro","input":2.0,"output":10.0,"cached":0.2,"limit":15,"limitPlus":60},
+  {"model":"Kimi K3","input":3.0,"output":15.0,"cached":0.3,"limit":15,"limitPlus":60},
+  {"model":"Kimi K2.7 Code","input":0.95,"output":4.0,"cached":0.19,"limit":60,"limitPlus":180},
+  {"model":"LongCat-2.0","input":0.3,"output":1.2,"cached":0.006,"limit":60,"limitPlus":240},
+  {"model":"Step 5 Preview","input":1.0,"output":2.7,"cached":0.1,"limit":15,"limitPlus":60},
+  {"model":"Beam Free","input":0,"output":0,"cached":0,"limit":null,"limitPlus":null,"note":"limited time"},
+  {"model":"MiMo-V2.6-Flash","input":0.14,"output":0.28,"cached":0.0028,"limit":60,"limitPlus":120},
+  {"model":"MiMo-V2.6-Pro","input":0.435,"output":0.87,"cached":0.003625,"limit":15,"limitPlus":60},
+  {"model":"MiMo-V2.5","input":0.14,"output":0.28,"cached":0.0028,"limit":60,"limitPlus":120},
+  {"model":"MiMo-V2.5-Pro","input":0.435,"output":0.87,"cached":0.003625,"limit":15,"limitPlus":60},
+  {"model":"MiniMax M3.1 Flash","input":0.15,"output":0.6,"cached":0.015,"limit":20,"limitPlus":80},
+  {"model":"MiniMax M3","input":0.3,"output":1.2,"cached":0.06,"limit":60,"limitPlus":180},
+  {"model":"Muse Spark 1.3 Contributor","input":0.1,"output":0.2,"cached":0.002,"limit":60,"limitPlus":120},
+  {"model":"Muse Spark 1.2 Contributor","input":0.1,"output":0.2,"cached":0.002,"limit":60,"limitPlus":120},
+  {"model":"Qwen3.8 Max","input":2.0,"output":6.0,"cached":0.25,"limit":15,"limitPlus":60},
+  {"model":"Qwen3.8 Flash","input":0.15,"output":0.47,"cached":0.016,"limit":30,"limitPlus":90},
+  {"model":"Qwen3.7 Plus (≤ 256K)","input":0.4,"output":1.6,"cached":0.04,"limit":60,"limitPlus":180},
+  {"model":"Qwen3.7 Plus (> 256K)","input":1.2,"output":4.8,"cached":0.12,"limit":60,"limitPlus":180},
+  {"model":"DeepSeek V4.1 Flash (Off-Peak)","input":0.15,"output":0.6,"cached":0.003,"limit":80,"limitPlus":160},
+  {"model":"DeepSeek V4.1 Flash (Peak)","input":0.3,"output":1.2,"cached":0.006,"limit":80,"limitPlus":160},
+  {"model":"DeepSeek V4 Pro (Off-Peak)","input":0.66,"output":1.98,"cached":0.022,"limit":15,"limitPlus":60},
+  {"model":"DeepSeek V4 Pro (Peak)","input":1.32,"output":3.96,"cached":0.044,"limit":15,"limitPlus":60},
+  {"model":"Hy4 preview","input":0.834,"output":2.501,"cached":0.042,"limit":30,"limitPlus":120},
+  {"model":"Hy3","input":0.14,"output":0.58,"cached":0.035,"limit":60,"limitPlus":240},
+  {"model":"Grok 4.7 (≤ 200K)","input":2.0,"output":6.0,"cached":0.5,"limit":15,"limitPlus":60},
+  {"model":"Grok 4.7 (> 200K)","input":4.0,"output":12.0,"cached":1.0,"limit":15,"limitPlus":60},
+  {"model":"GPT 6 Luna (≤ 272K)","input":0.1,"output":0.5,"cached":0.01,"limit":15,"limitPlus":60},
+  {"model":"GPT 6 Luna (> 272K)","input":0.2,"output":0.75,"cached":0.02,"limit":15,"limitPlus":60},
+  {"model":"GPT 5.6 Luna (≤ 272K)","input":0.2,"output":1.2,"cached":0.02,"limit":15,"limitPlus":60},
+  {"model":"GPT 5.6 Luna (> 272K)","input":0.4,"output":1.8,"cached":0.04,"limit":15,"limitPlus":60},
+  {"model":"Claude Haiku 5.5 (≤ 100K)","input":0.1,"output":0.5,"cached":0.01,"limit":15,"limitPlus":60},
+  {"model":"Claude Haiku 5.5 (> 100K)","input":0.5,"output":2.5,"cached":0.05,"limit":15,"limitPlus":60},
+  {"model":"Gemini 4 Argon (50% off)","input":2.0,"output":10.0,"cached":0.1,"limit":30,"limitPlus":120,"note":"50% off thru Nov 30, 2026"}
 ];
+
+// limit = Go ($10) monthly allowance; limitPlus = Go Plus ($40) allowance. Token prices are identical.
+function activeLimit(m) {
+  const v = PREFS.plan === "plus" ? m.limitPlus : m.limit;
+  return v === undefined ? m.limit : v;
+}
+function activePrice() { return planOf(PREFS.plan).price; }
 
 const q = document.getElementById("q");
 const tokEl = document.getElementById("tokens");
@@ -292,8 +348,9 @@ function rowsFromCells(header, bodyRows) {
   return rows.length >= 10 ? rows : null;
 }
 
-// Parse the markdown returned by the text proxy: first pipe-table whose
-// header has Input + Monthly limit columns is the Go-plan pricing table.
+// Parse the markdown returned by the text proxy: collect every pipe-table whose
+// header has Input + Monthly limit columns. The docs page has two (Go, then
+// Go Plus); return both when present.
 function parseSourceMarkdown(md) {
   const tables = [];
   let cur = null;
@@ -304,18 +361,41 @@ function parseSourceMarkdown(md) {
     } else if (cur) { tables.push(cur); cur = null; }
   }
   if (cur) tables.push(cur);
+  const found = [];
   for (const t of tables) {
     const rows = rowsFromCells(t[0], t.slice(1));
-    if (rows) return rows;
+    if (rows) found.push(rows);
   }
-  throw new Error("pricing table not found in source page");
+  if (!found.length) throw new Error("pricing table not found in source page");
+  return { go: found[0], plus: found[1] || null };
 }
 
 // Parse the docs HTML itself (used when the browser can fetch it directly).
-// The Go and Go Plus tables share the same headers, so pick the one with the
-// smaller total allowance: that is the Go ($10) plan.
+// The page holds Go and Go Plus tables (slots "go" / "go-plus") with identical
+// headers and identical token prices — only the monthly limits differ.
 function parseSourceHtml(htmlText) {
   const doc = new DOMParser().parseFromString(htmlText, "text/html");
+  const pickIn = (root) => {
+    const inner = [];
+    root.querySelectorAll("table").forEach((t) => {
+      const head = Array.from(t.querySelectorAll("th")).map((th) => th.textContent.trim());
+      const bodyRows = Array.from(t.querySelectorAll("tr")).slice(1).map((tr) =>
+        Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim()));
+      const rows = rowsFromCells(head, bodyRows);
+      if (rows) inner.push({ rows, total: rows.reduce((s, r) => s + (r.limit || 0), 0) });
+    });
+    if (!inner.length) return null;
+    inner.sort((a, b) => a.total - b.total);
+    return inner[0].rows;
+  };
+  const goSlot = doc.querySelector('[slot="go"]');
+  const plusSlot = doc.querySelector('[slot="go-plus"]');
+  if (goSlot || plusSlot) {
+    const go = goSlot ? pickIn(goSlot) : null;
+    const plus = plusSlot ? pickIn(plusSlot) : null;
+    if (go) return { go, plus };
+  }
+  // Fallback for markup without slots: two same-header tables, smaller total = Go.
   const cands = [];
   doc.querySelectorAll("table").forEach((t) => {
     const head = Array.from(t.querySelectorAll("th")).map((th) => th.textContent.trim());
@@ -326,31 +406,68 @@ function parseSourceHtml(htmlText) {
   });
   if (!cands.length) throw new Error("pricing table not found in source page");
   cands.sort((a, b) => a.total - b.total);
-  return cands[0].rows;
+  return { go: cands[0].rows, plus: cands.length > 1 ? cands[cands.length - 1].rows : null };
+}
+
+// Merge Go + Go Plus rows by model name. Prices are identical across plans;
+// only the allowance (limit vs limitPlus) differs.
+function mergePlanRows(goRows, plusRows) {
+  const plusByName = {};
+  (plusRows || []).forEach((r) => { plusByName[r.model] = r.limit; });
+  const oldByName = {};
+  MODELS.forEach((m) => { oldByName[m.model] = m; });
+  return goRows.map((r) => {
+    const out = { model: r.model, input: r.input, output: r.output, cached: r.cached, limit: r.limit, limitPlus: null };
+    if (r.model in plusByName) out.limitPlus = plusByName[r.model];
+    else if (oldByName[r.model] && oldByName[r.model].limitPlus !== undefined) out.limitPlus = oldByName[r.model].limitPlus;
+    else out.limitPlus = r.limit;
+    if (oldByName[r.model] && oldByName[r.model].note) out.note = oldByName[r.model].note;
+    return out;
+  });
 }
 
 function readLive() {
+  const readKey = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed.t !== "number") return null;
+      if (Date.now() - parsed.t > LIVE_TTL_MS) return null; // expired
+      return parsed;
+    } catch { return null; }
+  };
+  const cur = readKey(LIVE_KEY);
+  if (cur && Array.isArray(cur.go)) {
+    // plus may be null: the text-proxy mirror only renders the Go tab, so a
+    // proxy refresh updates Go prices and keeps built-in Go Plus allowances.
+    if (cur.plus !== null && cur.plus !== undefined && !Array.isArray(cur.plus)) return null;
+    return cur;
+  }
+  // Legacy v1 cache: single Go-plan array — keep its prices, fall back to
+  // built-in Go Plus allowances.
   try {
-    const raw = localStorage.getItem(LIVE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed.t !== "number" || !Array.isArray(parsed.data)) return null;
-    if (Date.now() - parsed.t > LIVE_TTL_MS) return null; // expired
-    return parsed;
-  } catch { return null; }
+    const raw = localStorage.getItem("go-live-v1");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.t === "number" && Array.isArray(parsed.data) &&
+          Date.now() - parsed.t <= LIVE_TTL_MS) {
+        return { t: parsed.t, via: parsed.via || "cache", go: parsed.data, plus: null, legacy: true };
+      }
+    }
+  } catch {}
+  return null;
 }
 
 let liveInfo = null;
 
-function applyLiveData(rows, via) {
-  const oldNotes = {};
-  MODELS.forEach((m) => { if (m.note) oldNotes[m.model] = m.note; });
-  rows.forEach((r) => { if (oldNotes[r.model]) r.note = oldNotes[r.model]; });
-  MODELS = rows;
+function applyLiveData(goRows, plusRows, via) {
+  MODELS = mergePlanRows(goRows, plusRows);
   liveInfo = { t: Date.now(), via };
-  try { localStorage.setItem(LIVE_KEY, JSON.stringify({ t: liveInfo.t, via, data: rows })); } catch {}
+  try { localStorage.setItem(LIVE_KEY, JSON.stringify({ t: liveInfo.t, via, go: goRows, plus: plusRows })); } catch {}
   render();
-  setSrcStatus("Prices: live from opencode.ai (" + via + ", just now) · " + rows.length + " models");
+  setSrcStatus("Prices: live from opencode.ai (" + via + ", just now) · " + goRows.length + " models · " +
+    (plusRows ? "Go + Go Plus limits" : "Go limits (Go Plus kept from built-in snapshot)"));
   srcBtn.disabled = false;
 }
 
@@ -367,8 +484,8 @@ async function refreshFromSource() {
       const res = await fetch(a.url, { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const text = await res.text();
-      const rows = a.via === "direct" ? parseSourceHtml(text) : parseSourceMarkdown(text);
-      applyLiveData(rows, a.via);
+      const parsed = a.via === "direct" ? parseSourceHtml(text) : parseSourceMarkdown(text);
+      applyLiveData(parsed.go, parsed.plus, a.via);
       return;
     } catch (err) { lastErr = err; }
   }
@@ -426,10 +543,29 @@ function applyColVisibility() {
   });
 }
 
+function updatePlanHeaders() {
+  const plan = planOf(PREFS.plan);
+  const setFirst = (id, label) => {
+    const th = document.getElementById(id);
+    if (!th) return;
+    // First child is the text node the sorter reads; paintSort() appends the arrow.
+    if (th.firstChild) th.firstChild.textContent = label + " ↕";
+  };
+  setFirst("thCash", "% of $" + plan.price + " cash");
+  setFirst("thSubs", "$" + plan.price + " subs needed");
+  setFirst("thPer", "Blocks / $" + plan.price);
+  const thLim = document.getElementById("thLimit");
+  if (thLim && thLim.firstChild) thLim.firstChild.textContent = plan.short + " allowance ↕";
+  const limSmall = thLim ? thLim.querySelector("small") : null;
+  if (limSmall) limSmall.textContent = "incl. with $" + plan.price;
+}
+
 function render() {
+  updatePlanHeaders();
   const { T, h, p, inM, outM, freshM, cachedM } = currentParams();
   const query = (q.value || "").toLowerCase();
   const showFree = showFreeEl.checked;
+  const subPrice = activePrice();
   const rows = MODELS
     .map((m) => {
       const cost = freshM * m.input + cachedM * m.cached + outM * m.output;
@@ -439,27 +575,30 @@ function render() {
     .filter(({ m }) => (showFree || !isFree(m)) && m.model.toLowerCase().includes(query));
 
   tbody.innerHTML = rows.map(({ m, cost }) => {
-    const cashPct = cost / SUB_PRICE * 100;
-    const subs = cost / SUB_PRICE;
-    const per10 = cost > 0 ? SUB_PRICE / cost : Infinity;
-    const allowPct = m.limit === null || m.limit === undefined ? null : cost / m.limit * 100;
+    const lim = activeLimit(m);
+    const subCost = (lim === null || lim === undefined || !(lim > 0)) ? 0 : cost / lim * subPrice;
+    const cashPct = cost / subPrice * 100;
+    const subs = cost / subPrice;
+    const perSub = cost > 0 ? subPrice / cost : Infinity;
+    const allowPct = lim === null || lim === undefined ? null : cost / lim * 100;
     const barW = allowPct === null ? 0 : Math.min(100, allowPct);
     const blended = (1 - p) * ((1 - h) * m.input + h * m.cached) + p * m.output; // $ per 1M total tokens
-    const maxTok = (m.limit === null || m.limit === undefined || blended <= 0) ? Infinity : m.limit / blended * 1e6;
+    const maxTok = (lim === null || lim === undefined || blended <= 0) ? Infinity : lim / blended * 1e6;
     return "<tr>" +
       '<td class="model">' + esc(m.model) + (m.note ? '<span class="tag">' + esc(m.note) + "</span>" : "") + "</td>" +
+      '<td class="num cost" data-val="' + subCost.toFixed(6) + '">' + money(subCost) + "</td>" +
       '<td class="num cost">' + money(cost) + "</td>" +
       '<td class="num">' + (cost === 0 ? "0%" : cashPct.toFixed(1) + "%") + "</td>" +
       '<td class="num">' + (cost === 0 ? "0" : subs.toFixed(2) + "×") + "</td>" +
-      '<td class="num">' + (!isFinite(per10) ? "∞" : per10.toFixed(1) + "×") + "</td>" +
+      '<td class="num">' + (!isFinite(perSub) ? "∞" : perSub.toFixed(1) + "×") + "</td>" +
       '<td class="num">' + (allowPct === null ? "0%" : allowPct.toFixed(1) + "%") +
         '<div class="bar' + (allowPct !== null && allowPct >= 100 ? " over" : "") + '"><span style="width:' + barW + '%"></span></div>' +
-        "<small>" + (allowPct === null ? "free" : (m.limit / cost).toFixed(1) + " blocks / allowance") + "</small></td>" +
+        "<small>" + (allowPct === null ? "free" : (lim / cost).toFixed(1) + " blocks / allowance") + "</small></td>" +
       '<td class="num" data-val="' + (isFinite(maxTok) ? String(Math.round(maxTok)) : "inf") + '">' + fmtTokens(maxTok) + "</td>" +
       '<td class="num ref">$' + m.input + "</td>" +
       '<td class="num ref">$' + m.cached + "</td>" +
       '<td class="num ref">$' + m.output + "</td>" +
-      '<td class="num ref">' + (m.limit === null || m.limit === undefined ? "Unlimited" : "$" + m.limit) + "</td>" +
+      '<td class="num ref">' + (lim === null || lim === undefined ? "Unlimited" : "$" + lim) + "</td>" +
       "</tr>";
   }).join("");
 
@@ -470,19 +609,22 @@ function render() {
   const mTok = T / 1e6;
   const mTokStr = (Number.isInteger(mTok) ? mTok.toString() : String(Math.round(mTok * 10) / 10)) + "M";
   const r1 = (x) => String(Math.round(x * 10) / 10);
-  summary.textContent = rows.length + " models · " + mTokStr + " total (" + r1(inM) + "M in + " + r1(outM) + "M out) @ " +
+  const plan = planOf(PREFS.plan);
+  summary.textContent = rows.length + " models · " + plan.short + " ($" + plan.price + ") · " + mTokStr + " total (" + r1(inM) + "M in + " + r1(outM) + "M out) @ " +
     (h * 100).toFixed(1) + "% hit · " + freshM.toFixed(1) + "M fresh + " + cachedM.toFixed(1) + "M cached";
 }
 
 function boot() {
   const live = readLive();
   if (live) {
-    MODELS = live.data;
+    MODELS = mergePlanRows(live.go, live.plus);
     liveInfo = { t: live.t, via: live.via || "cache" };
-    setSrcStatus("Prices: refreshed from opencode.ai " + ageText(live.t) + " · " + live.data.length + " models");
+    setSrcStatus("Prices: refreshed from opencode.ai " + ageText(live.t) + " · " + live.go.length + " models · " +
+      (live.plus ? "Go + Go Plus limits" : "Go limits (Go Plus from built-in snapshot)"));
   } else {
     setSrcStatus("Prices: built-in snapshot · press ↻ Refresh from source for the latest");
   }
+  restorePrefs();
   render();
 }
 
@@ -510,10 +652,14 @@ function restorePrefs() {
   outPctEl.value = PREFS.outPct;
   q.value = PREFS.q;
   showFreeEl.checked = PREFS.showFree;
+  const radio = document.querySelector('input[name="plan"][value="' + PREFS.plan + '"]') ||
+    document.querySelector('input[name="plan"][value="go"]');
+  if (radio) radio.checked = true;
 }
 
 [q, tokEl, hitEl, outPctEl].forEach((el) => el.addEventListener("input", () => { render(); savePrefs(); }));
 showFreeEl.addEventListener("change", () => { render(); savePrefs(); });
+document.querySelectorAll('input[name="plan"]').forEach((el) => el.addEventListener("change", () => { savePrefs(); render(); })); // save first: render() consumes PREFS.plan, which savePrefs() syncs from the checked radio
 srcBtn.addEventListener("click", refreshFromSource);
 
 // close column chooser on outside click / Escape
@@ -569,7 +715,6 @@ document.querySelectorAll("thead th").forEach((th, idx) => {
   });
 });
 
-restorePrefs();
 buildColChooser();
 boot();
 </script>
