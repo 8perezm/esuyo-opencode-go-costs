@@ -3,7 +3,7 @@
 A single self-contained HTML page that answers: **"What can $10 of OpenCode Go get you?"**
 
 It lines up every model on the Go $10 plan against one everyday example (default:
-100M input tokens at a 97% prompt-cache hit rate) so models with different
+100M total tokens at a 97% prompt-cache hit rate with 0.8% output share) so models with different
 monthly allowances can be compared side by side.
 
 Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
@@ -34,21 +34,23 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
   → `null`, tiered names normalized (`"(≤ 256K tokens)"` → `"(≤ 256K)"`), existing
   `note` labels kept by model-name match. On total failure the button reports why
   and keeps current prices — it never leaves the table empty.
-- **Cost formula** (input tokens only, output excluded):
-  `cost = freshM × input + cachedM × cached-read`,
-  where `freshM`/`cachedM` come from the tokens + hit-rate controls.
+- **Cost formula** (output included at the full output rate):
+  `cost = freshM × input + cachedM × cached-read + outM × output`,
+  where `freshM`/`cachedM`/`outM` come from the total-tokens + hit-rate + output-% controls
+  (`outM = totalM × p`, `inM = totalM × (1−p)`, split into fresh/cached by `h`).
 - **"Max tokens / sub"** = `allowance ÷ blended $/1M`, with
-  `blended = (1−h) × input + h × cached`. Recomputed when the hit rate changes.
+  `blended = (1−p) × ((1−h) × input + h × cached) + p × output`. Recomputed when the hit rate or output % changes.
 - **Rendering:** `render()` rebuilds `tbody` cheapest-first from `MODELS`, then
   `applyColVisibility()`, `sortTbody()`, `paintSort()` run in that order.
-- **Controls:** search, tokens (in millions), hit-rate %, "Show free models" checkbox
+- **Controls:** search, total tokens (in millions), hit-rate %, output % of total,
+  "Show free models" checkbox
   (free = `input === 0 && cached === 0`), column chooser (`<details id="colpick">`,
   driven by the `COLUMNS` array; Model column 0 is always shown).
 - **Sorting:** click any header. Active column is highlighted with ▲/▼, others show ↕.
   Clicking a new column sorts ascending; clicking it again flips direction.
   The Max-tokens column sorts by exact value via its `data-val` attribute.
 - **Persistence (localStorage):** form state + column visibility + sort column/direction
-  are saved under `go-prefs-v2` on every change and restored on load
+  are saved under `go-prefs-v3` on every change and restored on load
   (`restorePrefs()` runs before first `render()`; unknown/missing keys fall back to defaults).
 
 ## Developing the page
@@ -60,7 +62,7 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
   `<td>` in `render()`'s row template (add `data-val` with the raw number if the
   display text is formatted with suffixes like M/B), and bump `colspan` on the
   loading row. Saved prefs automatically default new columns to visible.
-- **Change defaults:** edit `defaultPrefs()` (`tokensM: 100, hit: 97, q: "",
+- **Change defaults:** edit `defaultPrefs()` (`tokensM: 100, hit: 97, outPct: 0.8, q: "",
   showFree: true`, all columns on, sort = Cost ascending).
 - **Styling:** plain CSS in `<style>`; font is Rubik via Google Fonts link.
   Layout is full-width, no card wrapper. Active sort header uses `th.sorted`.
@@ -73,8 +75,9 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
 2. Functional check: run the page logic in Node with stubbed `document`/`localStorage`
    (no `fetch` needed), pre-seed `go-prefs-v1`, call the header click handlers, and
    assert on `tbody.innerHTML`, header arrows (`▲/▼/↕`), and stored prefs.
-3. Spot-check math (h = 97%, T = 100M): GLM-5.3-Flash cost $3.36 → 1.79B max tokens;
-   Muse Spark 1.3 cost $0.494 → 12.15B; Grok 4.7 (≤ 200K) cost $54.50 → 27.5M.
+3. Spot-check math (h = 97%, T = 100M total, 0.8% out): GLM-5.3-Flash cost $3.73;
+   at 0% out it reproduces the old input-only $3.36. Session scale (11.9M total,
+   0.99% out): Muse Spark 1.3 ≈ $0.082.
 4. Test the source parser: download the proxy markdown
    (`curl -s "https://r.jina.ai/https://opencode.ai/v2/docs/console/go/" -o /tmp/go.md`),
    evaluate the page script in Node with stubbed `document`/`localStorage`, expose

@@ -27,7 +27,10 @@
   .controls .checkline input { min-width:0; width:18px; height:18px; margin:0; padding:0; accent-color:var(--accent); }
   .controls .checkline label { margin:0; font-size:14px; color:var(--ink); }
   .meta { font-size:12px; color:var(--muted); align-self:center; }
-  .tablebar { display:flex; justify-content:flex-end; margin:4px 0 8px; }
+  .tablebar { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin:4px 0 8px; }
+  .tablesearch { display:flex; align-items:center; gap:8px; }
+  .tablesearch label { font-size:13px; color:var(--muted); white-space:nowrap; }
+  .tablesearch input { font-family:inherit; font-size:14px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; min-width:170px; background:#fff; }
   .colpick { position:relative; }
   .colpick summary { cursor:pointer; font-size:13px; font-weight:600; border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 12px; list-style:none; user-select:none; }
   .colpick summary::-webkit-details-marker { display:none; }
@@ -71,9 +74,9 @@
     instantly, all right here in your browser.
   </p>
   <div class="controls">
-    <div><label for="q">Search model</label><input id="q" type="search" placeholder="e.g. mimo, grok, haiku…" /></div>
-    <div><label for="tokens">Total input tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
+    <div><label for="tokens">Total tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
     <div><label for="hit">Cache hit rate %</label><input id="hit" class="num-in" type="number" value="97" min="0" max="99.99" step="0.5" /></div>
+    <div><label for="outPct">Output % of total tokens</label><input id="outPct" class="num-in" type="number" value="0.8" min="0" max="90" step="0.1" /></div>
     <div class="checkline"><input id="showFree" type="checkbox" checked /><label for="showFree">Show free models</label></div>
     <div><button id="srcBtn" type="button" title="Fetch the latest Go-plan table from the OpenCode docs and update the table">↻ Refresh from source</button></div>
     <div class="meta" id="summary"></div>
@@ -81,6 +84,7 @@
   </div>
 </header>
 <div class="tablebar">
+  <div class="tablesearch"><label for="q">Search model</label><input id="q" type="search" placeholder="e.g. mimo, grok, haiku…" /></div>
   <details class="colpick" id="colpick">
     <summary>Columns ▾</summary>
     <div class="colpick-menu" id="colpickMenu"></div>
@@ -105,25 +109,27 @@
 </table>
 </div>
 <footer>
-  <strong>How to read:</strong> “Cost” is dollars of allowance consumed by the workload above.
+  <strong>How to read:</strong> “Cost” is dollars of allowance consumed by the workload above
+  (input at fresh/cached rates plus output at the full output rate).
   “% of $10 cash” = cost ÷ 10 (cash-equivalent). “% of allowance” = cost ÷ that model’s Go allowance
-  (e.g. $3.36 on a $60 allowance = 5.6%, ≈17.9 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one $10 subscription for that model.<br/>
-  <strong>Assumptions:</strong> input tokens only; output tokens excluded (coding agents are input-heavy and outputs vary).
+  (e.g. $3.73 on a $60 allowance = 6.2%, ≈16.1 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one $10 subscription for that model.<br/>
+  <strong>Assumptions:</strong> “Total tokens” splits into input and output by “Output %”;
+  output tokens are always charged at the full output rate (no cache discount on generated text).
   Tiered rows (context-size / peak / off-peak) are listed separately as in the official table. Beam Free = $0 (limited time).
   Prices are built into this page, so it works offline — just open the file.
   Press “↻ Refresh from source” to fetch the latest Go-plan table from the
   <a href="https://opencode.ai/v2/docs/console/go/">OpenCode Go pricing</a> docs;
   the table updates in place and fresh prices are remembered for an hour.
   To update the built-in snapshot itself, edit the <code>MODELS</code> list in <code>index.html</code>.
-  “Tokens / sub” is the total input tokens the subscription’s allowance buys at the current hit rate (allowance ÷ blended $/1M price; updates when you change the hit rate).
-  Form selections (search, tokens, hit rate, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
+  “Tokens / sub” is the total tokens the subscription’s allowance buys at the current hit rate and output share (allowance ÷ blended $/1M price; updates when you change either).
+  Form selections (search, tokens, hit rate, output %, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
 </footer>
 <script>
 "use strict";
 /* Fully client-side. No server, no build: prices live in MODELS below and all
    math + rendering happens here. The refresh button fetches the live docs page
    (via a text proxy when the browser blocks cross-site requests). */
-const PREFS_KEY = "go-prefs-v2"; // v2: column order changed, old indexes no longer valid
+const PREFS_KEY = "go-prefs-v3"; // v3: tokens = total (in+out), new outPct field
 const SOURCE_URL = "https://opencode.ai/v2/docs/console/go/";
 const PROXY_URL = "https://r.jina.ai/https://opencode.ai/v2/docs/console/go/";
 const LIVE_KEY = "go-live-v1";
@@ -147,7 +153,7 @@ const COLUMNS = [
 function defaultPrefs() {
   const cols = {};
   COLUMNS.forEach((c) => { cols[c.key] = true; });
-  return { tokensM: 100, hit: 97, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 };
+  return { tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 };
 }
 
 function loadPrefs() {
@@ -159,6 +165,7 @@ function loadPrefs() {
     return {
       tokensM: Number(p.tokensM) > 0 ? Number(p.tokensM) : d.tokensM,
       hit: p.hit === undefined || p.hit === null || isNaN(Number(p.hit)) ? d.hit : Number(p.hit),
+      outPct: p.outPct === undefined || p.outPct === null || isNaN(Number(p.outPct)) ? d.outPct : Math.min(90, Math.max(0, Number(p.outPct))),
       q: typeof p.q === "string" ? p.q : "",
       showFree: p.showFree === undefined ? true : !!p.showFree,
       cols: Object.assign(d.cols, p.cols || {}),
@@ -173,6 +180,7 @@ function savePrefs() {
   try {
     PREFS.tokensM = Number(tokEl.value) || 100;
     PREFS.hit = hitEl.value === "" ? PREFS.hit : Number(hitEl.value);
+    PREFS.outPct = outPctEl.value === "" ? PREFS.outPct : Math.min(90, Math.max(0, Number(outPctEl.value)));
     PREFS.q = q.value || "";
     PREFS.showFree = showFreeEl.checked;
     localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS));
@@ -221,6 +229,7 @@ let MODELS = [
 const q = document.getElementById("q");
 const tokEl = document.getElementById("tokens");
 const hitEl = document.getElementById("hit");
+const outPctEl = document.getElementById("outPct");
 const showFreeEl = document.getElementById("showFree");
 const tbody = document.getElementById("body");
 const summary = document.getElementById("summary");
@@ -392,9 +401,13 @@ function fmtTokens(n) {
 function isFree(m) { return m.input === 0 && m.cached === 0; }
 
 function currentParams() {
-  const T = Math.max(1e6, (Number(tokEl.value) || 100) * 1e6);
-  const h = Math.min(0.9999, Math.max(0, (Number(hitEl.value) || 97) / 100));
-  return { T, h, freshM: T * (1 - h) / 1e6, cachedM: T * h / 1e6 };
+  const totalM = (Number(tokEl.value) || 100);
+  const T = Math.max(1e6, totalM * 1e6); // total tokens (input + output)
+  const h = Math.min(0.9999, Math.max(0, (Number(hitEl.value) || 0) / 100));
+  const p = Math.min(0.9, Math.max(0, (Number(outPctEl.value) || 0) / 100)); // output share of total
+  const inM = totalM * (1 - p);
+  const outM = totalM * p;
+  return { T, h, p, inM, outM, freshM: inM * (1 - h), cachedM: inM * h };
 }
 
 function hiddenColIndexes() {
@@ -414,12 +427,12 @@ function applyColVisibility() {
 }
 
 function render() {
-  const { T, h, freshM, cachedM } = currentParams();
+  const { T, h, p, inM, outM, freshM, cachedM } = currentParams();
   const query = (q.value || "").toLowerCase();
   const showFree = showFreeEl.checked;
   const rows = MODELS
     .map((m) => {
-      const cost = freshM * m.input + cachedM * m.cached;
+      const cost = freshM * m.input + cachedM * m.cached + outM * m.output;
       return { m, cost };
     })
     .sort((a, b) => a.cost - b.cost)
@@ -431,7 +444,7 @@ function render() {
     const per10 = cost > 0 ? SUB_PRICE / cost : Infinity;
     const allowPct = m.limit === null || m.limit === undefined ? null : cost / m.limit * 100;
     const barW = allowPct === null ? 0 : Math.min(100, allowPct);
-    const blended = (1 - h) * m.input + h * m.cached; // $ per 1M tokens at the same hit rate
+    const blended = (1 - p) * ((1 - h) * m.input + h * m.cached) + p * m.output; // $ per 1M total tokens
     const maxTok = (m.limit === null || m.limit === undefined || blended <= 0) ? Infinity : m.limit / blended * 1e6;
     return "<tr>" +
       '<td class="model">' + esc(m.model) + (m.note ? '<span class="tag">' + esc(m.note) + "</span>" : "") + "</td>" +
@@ -456,7 +469,8 @@ function render() {
 
   const mTok = T / 1e6;
   const mTokStr = (Number.isInteger(mTok) ? mTok.toString() : String(Math.round(mTok * 10) / 10)) + "M";
-  summary.textContent = rows.length + " models · " + mTokStr + " tokens @ " +
+  const r1 = (x) => String(Math.round(x * 10) / 10);
+  summary.textContent = rows.length + " models · " + mTokStr + " total (" + r1(inM) + "M in + " + r1(outM) + "M out) @ " +
     (h * 100).toFixed(1) + "% hit · " + freshM.toFixed(1) + "M fresh + " + cachedM.toFixed(1) + "M cached";
 }
 
@@ -493,11 +507,12 @@ function buildColChooser() {
 function restorePrefs() {
   tokEl.value = PREFS.tokensM;
   hitEl.value = PREFS.hit;
+  outPctEl.value = PREFS.outPct;
   q.value = PREFS.q;
   showFreeEl.checked = PREFS.showFree;
 }
 
-[q, tokEl, hitEl].forEach((el) => el.addEventListener("input", () => { render(); savePrefs(); }));
+[q, tokEl, hitEl, outPctEl].forEach((el) => el.addEventListener("input", () => { render(); savePrefs(); }));
 showFreeEl.addEventListener("change", () => { render(); savePrefs(); });
 srcBtn.addEventListener("click", refreshFromSource);
 
