@@ -13,27 +13,33 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
 - `index.html` — the whole app (markup + CSS + JS, no build step, no dependencies).
   Open it directly in a browser via `file://`, or serve the folder:
   `python3 -m http.server 8000` → `http://localhost:8000/index.html`
-- No other files are needed. Prices are embedded in the page (see below).
+- No other files are needed. No prices are stored in the page: it fetches the
+  live pricing table from the source docs on every load (see below).
 
 ## How it works
 
-- **Fully client-side.** No server code, no `fetch()`, no network requests except the
-  Google Fonts stylesheet (Asap Sharp). All math and rendering happen in the `<script>`.
-- **Price data** lives in the `MODELS` array near the top of the script:
+- **Fully client-side.** No server code, no build step. All math and rendering
+  happen in the `<script>`; the only network requests are the Google Fonts
+  stylesheet plus the live price fetch below.
+- **Price data is never stored in the page.** `MODELS` starts empty and is filled
+  on every load by `refreshFromSource()`, which fetches the Go-plan table from
+  the docs and updates the table in place. Each entry looks like
   `{ model, input, output, cached, limit, note? }` — prices are $ per 1M tokens,
   `limit` is the Go-plan monthly allowance in $ (`null` = Unlimited/free).
-- **"↻ Refresh from source" button** fetches the latest Go-plan table from the docs
-  and updates the table in place (successful refreshes are remembered for 1 hour
-  under `go-live-v1`). Flow: try the docs URL directly (usually blocked by the
-  browser's cross-site rules), then fall back to the Jina text-proxy mirror
-  (`PROXY_URL`), which returns the page as markdown. Parsing:
+  Successful fetches are cached for 1 hour under `go-live-v1` so reloads paint
+  instantly, then revalidate in the background. Flow: try the docs URL directly
+  (usually blocked by the browser's cross-site rules), then fall back to the
+  Jina text-proxy mirror (`PROXY_URL`), which returns the page as markdown. Parsing:
   `parseSourceMarkdown` takes the first pipe-table whose header has Input +
   Monthly-limit columns; `parseSourceHtml` picks, among same-header tables, the one
   with the smallest total allowance (Go, not Go Plus). Per-cell rules: `Free` → 0,
   struck-through discounts (`~~$4.00~~ $2.00`) → last price wins, `Unlimited` limit
-  → `null`, tiered names normalized (`"(≤ 256K tokens)"` → `"(≤ 256K)"`), existing
-  `note` labels kept by model-name match. On total failure the button reports why
-  and keeps current prices — it never leaves the table empty.
+  → `null`, tiered names normalized (`"(≤ 256K tokens)"` → `"(≤ 256K)"`), and the
+  `limited time` tag derived from the limit cell. New model rows in the source
+  appear automatically — nothing is matched against a stored list. The
+  "Refresh from source" button forces a re-check on demand. On total failure
+  with cached prices the page reports why and keeps them; with no data at all
+  it shows an error row with a Retry button instead of an empty table.
 - **Cost formula** (input tokens only, output excluded):
   `cost = freshM × input + cachedM × cached-read`,
   where `freshM`/`cachedM` come from the tokens + hit-rate controls.
@@ -53,9 +59,10 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
 
 ## Developing the page
 
-- **Update prices:** edit the `MODELS` array in `index.html`, reload. Keep it in
-  the same order/shape as the official docs table (tiered rows listed separately,
-  e.g. `≤ 256K` / `> 256K`, Peak / Off-Peak).
+- **No price maintenance:** there is no price list to edit — new models, price
+  changes, and allowance changes in the source table flow in automatically.
+  Only touch the parser if the docs change the table *shape* (e.g. a new price
+  column to capture in `rowsFromCells`, or renamed headers).
 - **Add a column:** append to `COLUMNS` (`{ key, label }`), add a `<th>`, emit the
   `<td>` in `render()`'s row template (add `data-val` with the raw number if the
   display text is formatted with suffixes like M/B), and bump `colspan` on the
@@ -77,7 +84,10 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
    Muse Spark 1.3 cost $0.494 → 12.15B; Grok 4.7 (≤ 200K) cost $54.50 → 27.5M.
 4. Test the source parser: download the proxy markdown
    (`curl -s "https://r.jina.ai/https://opencode.ai/v2/docs/console/go/" -o /tmp/go.md`),
-   evaluate the page script in Node with stubbed `document`/`localStorage`, expose
-   `parseSourceMarkdown`, and assert all parsed rows match `MODELS` field by field
-   (ignoring `note`). Also exercise `refreshFromSource` with stubbed `fetch`
-   (direct rejects, proxy resolves) and with all-rejecting `fetch` for the failure path.
+   evaluate the page's pure parser functions in Node (slice the script from
+   `function parsePrice` to `function parseSourceHtml` — no DOM stubs needed),
+   and assert the parsed rows are well-formed: ≥ 30 rows, non-empty names,
+   non-negative prices, positive-or-null limits. Also exercise
+   `refreshFromSource` with stubbed `fetch` (direct rejects, proxy resolves)
+   and with all-rejecting `fetch` for both failure paths (with and without
+   cached `MODELS`).
