@@ -14,7 +14,7 @@
   body { font-family:'Rubik',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:20px; }
   header { margin-bottom:12px; }
   h1 { font-size:22px; margin:0 0 6px; }
-  p.sub { color:var(--muted); margin:4px 0 12px; font-size:14px; line-height:1.55; max-width:110ch; }
+  p.sub { color:var(--muted); margin:4px 0 12px; font-size:14px; line-height:1.55; }
   code.formula { background:#eef2f7; padding:2px 6px; border-radius:6px; font-size:13px; }
   .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin:14px 0; }
   .controls label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
@@ -26,23 +26,27 @@
   .controls .checkline { display:flex; align-items:center; gap:8px; padding-bottom:9px; }
   .controls .checkline input { min-width:0; width:18px; height:18px; margin:0; padding:0; accent-color:var(--accent); }
   .controls .checkline label { margin:0; font-size:14px; color:var(--ink); }
-  .plan-group { display:flex; align-items:center; gap:10px; padding-bottom:9px; }
+  .plan-group { display:flex; align-items:center; padding:9px 14px; flex-basis:100%; background:#e8f1ff; border:1px solid #bcd6ff; border-radius:10px; }
+  .plan-group .plan-title { margin-right:10px; }
+  .plan-group label + label { margin-left:28px; }
   .plan-group .plan-title { font-size:12px; color:var(--muted); }
   .plan-group label { display:flex; align-items:center; gap:6px; font-size:14px; color:var(--ink); cursor:pointer; margin:0; }
   .plan-group input { min-width:0; width:16px; height:16px; margin:0; padding:0; accent-color:var(--accent); }
   .meta { font-size:12px; color:var(--muted); align-self:center; }
-  .tablebar { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin:4px 0 8px; }
+  .tablebar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:4px 0 8px; flex-wrap:wrap; }
+  .tableright { display:flex; align-items:center; gap:12px; }
   .tablesearch { display:flex; align-items:center; gap:8px; }
   .tablesearch label { font-size:13px; color:var(--muted); white-space:nowrap; }
   .tablesearch input { font-family:inherit; font-size:14px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; min-width:170px; background:#fff; }
   .colpick { position:relative; }
-  .colpick summary { cursor:pointer; font-size:13px; font-weight:600; border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 12px; list-style:none; user-select:none; }
+  .colpick summary { cursor:pointer; font-size:13px; font-weight:600; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:8px; padding:7px 12px; list-style:none; user-select:none; }
   .colpick summary::-webkit-details-marker { display:none; }
-  .colpick summary:hover { border-color:var(--accent); color:var(--accent); }
+  .colpick summary:hover { background:#0959d6; border-color:#0959d6; color:#fff; }
   .colpick-menu { position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; min-width:210px; box-shadow:0 8px 24px rgba(16,24,40,.12); z-index:20; }
   .colpick-menu label { display:flex; align-items:center; gap:8px; font-size:13.5px; padding:5px 2px; cursor:pointer; }
   .colpick-menu input { width:16px; height:16px; accent-color:var(--accent); }
   .table-scroll { overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin-top:10px; background:#fff; }
+  .table-scroll.narrow table { min-width:640px; } /* fewer columns when workload projection is off */
   table { border-collapse:collapse; width:100%; font-size:13.5px; min-width:1180px; }
   thead th { background:#111827; color:#fff; text-align:left; padding:10px 12px; cursor:pointer; white-space:nowrap; user-select:none; position:sticky; top:0; }
   thead th small { display:block; font-weight:400; opacity:.7; font-size:11px; }
@@ -67,6 +71,7 @@
   .loading { padding:24px; color:var(--muted); }
   .loading button { font-family:inherit; font-size:13px; padding:6px 12px; margin-left:8px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
   .loading button:hover { border-color:var(--accent); color:var(--accent); }
+  #srcBtn { display:none; } /* hidden but kept: refresh still runs automatically */
   #feedBadge { position:fixed; top:12px; right:12px; z-index:50; display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:12px; color:var(--muted); box-shadow:0 4px 14px rgba(16,24,40,.10); }
   #feedDot { width:10px; height:10px; border-radius:50%; background:#9aa3af; flex:none; }
   #feedBadge[data-state="ok"] #feedDot { background:var(--green); }
@@ -97,23 +102,25 @@
       <label><input type="radio" name="plan" value="plus" /> Opencode Go Plus · $40</label>
       <label><input type="radio" name="plan" value="teams" /> Opencode Go Teams · $20</label>
     </div>
-    <div><label for="tokens">Total tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
+    <div class="checkline"><input id="project" type="checkbox" /><label for="project" title="Project a token workload: shows Total tokens and the cost columns">Project tokens</label></div>
+    <div id="tokensWrap"><label for="tokens">Total tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
     <div><label for="hit">Cache hit rate %</label><input id="hit" class="num-in" type="number" value="97" min="0" max="99.99" step="0.5" /></div>
     <div><label for="outPct">Output % of total tokens</label><input id="outPct" class="num-in" type="number" value="0.8" min="0" max="90" step="0.1" /></div>
     <div class="checkline"><input id="showFree" type="checkbox" checked /><label for="showFree">Show free models</label></div>
     <div><button id="srcBtn" type="button" title="Fetch the latest Go-plan table from the OpenCode docs and update the table">↻ Refresh from source</button></div>
-    <div class="meta" id="summary"></div>
-    <div class="meta" id="srcStatus"></div>
   </div>
 </header>
 <div class="tablebar">
+  <div class="meta" id="summary"></div>
+  <div class="tableright">
   <div class="tablesearch"><label for="q">Search model</label><input id="q" type="search" placeholder="e.g. mimo, grok, haiku…" /></div>
   <details class="colpick" id="colpick">
     <summary>Columns ▾</summary>
     <div class="colpick-menu" id="colpickMenu"></div>
   </details>
+  </div>
 </div>
-<div class="table-scroll">
+<div class="table-scroll" id="tableScroll">
 <table id="t">
   <thead><tr>
     <th>Model ↕<small>click to sort</small></th>
@@ -124,13 +131,14 @@
     <th id="thPer">Blocks / $10 ↕</th>
     <th>% of allowance ↕<small>+ blocks per allowance</small></th>
     <th>Plus vs Go ↕<small>max tokens</small></th>
+    <th>Teams vs Go ↕<small>max tokens</small></th>
     <th>Max tokens / sub ↕<small>same hit rate</small></th>
     <th class="ref">Input $/1M ↕</th>
     <th class="ref">Cached-read $/1M ↕</th>
     <th class="ref">Output $/1M ↕<small>ref only</small></th>
     <th class="ref" id="thLimit">Go allowance ↕<small>incl. with $10</small></th>
   </tr></thead>
-  <tbody id="body"><tr><td colspan="13" class="loading">Loading live prices from the OpenCode docs…</td></tr></tbody>
+  <tbody id="body"><tr><td colspan="14" class="loading">Loading live prices from the OpenCode docs…</td></tr></tbody>
 </table>
 </div>
 <footer>
@@ -153,6 +161,8 @@
   If the docs gain a new model row, it appears here automatically on the next load.
   “Tokens / sub” is the total tokens the subscription’s allowance buys at the current hit rate and output share (allowance ÷ blended $/1M price; updates when you change either).
   “Plus vs Go” is how many times more tokens Go Plus buys than Go for that model (Go Plus allowance ÷ Go allowance; token prices are identical, so hit rate and output share cancel out). Free rows show “—”.
+  “Teams vs Go” is the same comparison against the Go Teams allowance. Free rows show “—”.
+  Tick “Project tokens” to enter a Total-tokens workload: it reveals the Total tokens field and the workload-derived columns (Sub cost, Cost, % of cash, Subs needed, Blocks per sub, % of allowance).
   Form selections (plan, search, tokens, hit rate, output %, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
 </footer>
 <script>
@@ -162,8 +172,8 @@
    Go / Go Plus / Go Teams docs tables on every load (official Markdown, page
    HTML, or via a text proxy when the browser blocks cross-site requests)
    and cached in localStorage for an hour. */
-const PREFS_KEY = "go-prefs-v8"; // v8: "Plus vs Go" column added before "Max tokens / sub"
-const LEGACY_PREFS_KEYS = ["go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
+const PREFS_KEY = "go-prefs-v10"; // v10: "Teams vs Go" column added after "Plus vs Go"
+const LEGACY_PREFS_KEYS = ["go-prefs-v9", "go-prefs-v8", "go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
 const SOURCE_URL = "https://opencode.ai/docs/console/go/";
 const MD_SOURCE_URL = "https://opencode.ai/docs/console/go.md";
 const PROXY_MD_URL = "https://r.jina.ai/https://opencode.ai/docs/console/go.md";
@@ -186,6 +196,7 @@ const COLUMNS = [
   { key: "per10", label: "Blocks per sub" },
   { key: "allow", label: "% of allowance" },
   { key: "plusvgo", label: "Plus vs Go" },
+  { key: "teamsvgo", label: "Teams vs Go" },
   { key: "maxtok", label: "Max tokens / sub" },
   { key: "input", label: "Input $/1M" },
   { key: "cached", label: "Cached-read $/1M" },
@@ -196,21 +207,25 @@ const COLUMNS = [
 function defaultPrefs() {
   const cols = {};
   COLUMNS.forEach((c) => { cols[c.key] = true; });
-  return { plan: "go", tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 }; // sort = Sub cost ↑
+  return { plan: "go", project: false, tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 }; // sort = Sub cost ↑
 }
+
+// Columns that need a projected token workload (Total tokens). They are
+// force-hidden and unavailable in the column chooser while Project is off.
+const TOKEN_COLS = ["subcost", "cost", "cashpct", "subs", "per10", "allow"];
 
 function loadPrefs() {
   const parse = (raw) => {
     try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   };
   let p = null;
-  let legacyGen = 0; // 0 = current, 7 = v7 (pre-Plus-vs-Go), 6 = v6, 5 = v5, 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
+  let legacyGen = 0; // 0 = current, 8 = v8 (pre-project-toggle), 7 = v7 (pre-Plus-vs-Go), 6 = v6, 5 = v5, 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
   try { p = parse(localStorage.getItem(PREFS_KEY)); } catch { p = null; }
   if (!p) {
     for (const k of LEGACY_PREFS_KEYS) {
       try {
         const lp = parse(localStorage.getItem(k));
-        if (lp) { p = lp; legacyGen = k === "go-prefs-v7" ? 7 : k === "go-prefs-v6" ? 6 : k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
+        if (lp) { p = lp; legacyGen = k === "go-prefs-v9" ? 9 : k === "go-prefs-v8" ? 8 : k === "go-prefs-v7" ? 7 : k === "go-prefs-v6" ? 6 : k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
       } catch {}
     }
   }
@@ -226,13 +241,15 @@ function loadPrefs() {
         if (sortCol === 1) sortCol = 2;
         else if (sortCol === 2) sortCol = 1;
       }
-      if (legacyGen >= 3 && legacyGen <= 7 && sortCol >= 7) sortCol += 1; // v8: "Plus vs Go" inserted at index 7
+      if (legacyGen >= 3 && legacyGen <= 8 && sortCol >= 7) sortCol += 1; // v8: "Plus vs Go" inserted at index 7
+      if (legacyGen >= 3 && legacyGen <= 9 && sortCol >= 8) sortCol += 1; // v10: "Teams vs Go" inserted at index 8
       if (sortCol > COLUMNS.length) sortCol = d.sortCol;
     }
     const cols = Object.assign(d.cols, p.cols || {});
     if (legacyGen !== 0) cols.cost = true; // "Cost" visible again; toggle via Columns ▾
     return {
       plan: p.plan === "plus" ? "plus" : p.plan === "teams" ? "teams" : "go",
+      project: p.project === true,
       tokensM: Number(p.tokensM) > 0 ? Number(p.tokensM) : d.tokensM,
       hit: p.hit === undefined || p.hit === null || isNaN(Number(p.hit)) ? d.hit : Number(p.hit),
       outPct: p.outPct === undefined || p.outPct === null || isNaN(Number(p.outPct)) ? d.outPct : Math.min(90, Math.max(0, Number(p.outPct))),
@@ -250,6 +267,7 @@ function savePrefs() {
   try {
     const checked = document.querySelector('input[name="plan"]:checked')?.value;
     PREFS.plan = checked === "plus" ? "plus" : checked === "teams" ? "teams" : "go";
+    PREFS.project = projectEl.checked;
     PREFS.tokensM = Number(tokEl.value) || 100;
     PREFS.hit = hitEl.value === "" ? PREFS.hit : Number(hitEl.value);
     PREFS.outPct = outPctEl.value === "" ? PREFS.outPct : Math.min(90, Math.max(0, Number(outPctEl.value)));
@@ -275,6 +293,8 @@ function activePrice() { return planOf(PREFS.plan).price; }
 
 const q = document.getElementById("q");
 const tokEl = document.getElementById("tokens");
+const tokensWrap = document.getElementById("tokensWrap");
+const projectEl = document.getElementById("project");
 const hitEl = document.getElementById("hit");
 const outPctEl = document.getElementById("outPct");
 const showFreeEl = document.getElementById("showFree");
@@ -303,7 +323,7 @@ function ageText(t) {
   return mins < 1 ? "just now" : mins === 1 ? "1 min ago" : mins + " mins ago";
 }
 
-function setSrcStatus(s) { srcStatus.textContent = s; }
+function setSrcStatus(s) { if (srcStatus) srcStatus.textContent = s; }
 
 // A price cell is "$0.15", "Free", or a struck-through discount like
 // "~~$4.00~~ $2.00" (take the last = current price).
@@ -492,7 +512,7 @@ function readLive() {
 let liveInfo = null;
 
 function showError(msg) {
-  tbody.innerHTML = '<tr><td colspan="13" class="loading">Could not load live prices (' +
+  tbody.innerHTML = '<tr><td colspan="14" class="loading">Could not load live prices (' +
     esc(msg) + '). <button type="button" onclick="refreshFromSource()">Retry</button></td></tr>';
   summary.textContent = "0 models";
   setFeed("err", "source parse failed", "Could not parse data from opencode.ai: " + msg);
@@ -590,7 +610,10 @@ function currentParams() {
 
 function hiddenColIndexes() {
   const hidden = new Set();
-  COLUMNS.forEach((c, i) => { if (!PREFS.cols[c.key]) hidden.add(i + 1); });
+  COLUMNS.forEach((c, i) => {
+    if (!PREFS.cols[c.key]) hidden.add(i + 1);
+    else if (!PREFS.project && TOKEN_COLS.includes(c.key)) hidden.add(i + 1); // no workload projected
+  });
   return hidden;
 }
 
@@ -653,6 +676,10 @@ function render() {
     const plusVsGo = (goLim === null || goLim === undefined) ?
       ((plusLim === null || plusLim === undefined) ? null : Infinity) :
       (!(goLim > 0) ? null : plusLim === null ? Infinity : plusLim / goLim);
+    const teamsLim = (m.limitTeams === undefined) ? goLim : m.limitTeams;
+    const teamsVsGo = (goLim === null || goLim === undefined) ?
+      ((teamsLim === null || teamsLim === undefined) ? null : Infinity) :
+      (!(goLim > 0) ? null : teamsLim === null ? Infinity : teamsLim / goLim);
     return "<tr>" +
       '<td class="model">' + esc(m.model) + (m.note ? '<span class="tag">' + esc(m.note) + "</span>" : "") + "</td>" +
       '<td class="num cost" data-val="' + subCost.toFixed(6) + '">' + money(subCost) + "</td>" +
@@ -664,6 +691,7 @@ function render() {
         '<div class="bar' + (allowPct !== null && allowPct >= 100 ? " over" : "") + '"><span style="width:' + barW + '%"></span></div>' +
         "<small>" + (allowPct === null ? "free" : (lim / cost).toFixed(1) + " blocks / allowance") + "</small></td>" +
       '<td class="num" data-val="' + (plusVsGo === null ? "1" : !isFinite(plusVsGo) ? "inf" : String(plusVsGo)) + '">' + (plusVsGo === null ? "—" : !isFinite(plusVsGo) ? "∞" : plusVsGo.toFixed(1) + "×") + "</td>" +
+      '<td class="num" data-val="' + (teamsVsGo === null ? "1" : !isFinite(teamsVsGo) ? "inf" : String(teamsVsGo)) + '">' + (teamsVsGo === null ? "—" : !isFinite(teamsVsGo) ? "∞" : teamsVsGo.toFixed(1) + "×") + "</td>" +
       '<td class="num" data-val="' + (isFinite(maxTok) ? String(Math.round(maxTok)) : "inf") + '">' + fmtTokens(maxTok) + "</td>" +
       '<td class="num ref">$' + m.input + "</td>" +
       '<td class="num ref">$' + m.cached + "</td>" +
@@ -680,8 +708,11 @@ function render() {
   const mTokStr = (Number.isInteger(mTok) ? mTok.toString() : String(Math.round(mTok * 10) / 10)) + "M";
   const r1 = (x) => String(Math.round(x * 10) / 10);
   const plan = planOf(PREFS.plan);
-  summary.textContent = rows.length + " models · " + plan.short + " ($" + plan.price + ") · " + mTokStr + " total (" + r1(inM) + "M in + " + r1(outM) + "M out) @ " +
-    (h * 100).toFixed(1) + "% hit · " + freshM.toFixed(1) + "M fresh + " + cachedM.toFixed(1) + "M cached";
+  summary.textContent = PREFS.project
+    ? rows.length + " models · " + plan.short + " ($" + plan.price + ") · " + mTokStr + " total (" + r1(inM) + "M in + " + r1(outM) + "M out) @ " +
+      (h * 100).toFixed(1) + "% hit · " + freshM.toFixed(1) + "M fresh + " + cachedM.toFixed(1) + "M cached"
+    : rows.length + " models · " + plan.short + " ($" + plan.price + ") · projection off @ " +
+      (h * 100).toFixed(1) + "% hit · " + (p * 100).toFixed(1) + "% out";
 }
 
 function boot() {
@@ -710,6 +741,7 @@ function buildColChooser() {
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = !!PREFS.cols[c.key];
+    if (!PREFS.project && TOKEN_COLS.includes(c.key)) cb.disabled = true; // unavailable without a projected workload
     cb.addEventListener("change", () => {
       PREFS.cols[c.key] = cb.checked;
       try { localStorage.setItem(PREFS_KEY, JSON.stringify(PREFS)); } catch {}
@@ -721,12 +753,21 @@ function buildColChooser() {
   });
 }
 
+function applyProjectVisibility() {
+  if (tokensWrap) tokensWrap.style.display = PREFS.project ? "" : "none";
+  const scroller = document.getElementById("tableScroll");
+  if (scroller) scroller.classList.toggle("narrow", !PREFS.project);
+  buildColChooser(); // refresh unavailable (disabled) states
+}
+
 function restorePrefs() {
   tokEl.value = PREFS.tokensM;
   hitEl.value = PREFS.hit;
   outPctEl.value = PREFS.outPct;
   q.value = PREFS.q;
   showFreeEl.checked = PREFS.showFree;
+  projectEl.checked = PREFS.project === true;
+  applyProjectVisibility();
   const radio = document.querySelector('input[name="plan"][value="' + PREFS.plan + '"]') ||
     document.querySelector('input[name="plan"][value="go"]');
   if (radio) radio.checked = true;
@@ -734,6 +775,7 @@ function restorePrefs() {
 
 [q, tokEl, hitEl, outPctEl].forEach((el) => el.addEventListener("input", () => { render(); savePrefs(); }));
 showFreeEl.addEventListener("change", () => { render(); savePrefs(); });
+projectEl.addEventListener("change", () => { savePrefs(); applyProjectVisibility(); render(); });
 document.querySelectorAll('input[name="plan"]').forEach((el) => el.addEventListener("change", () => { savePrefs(); render(); })); // save first: render() consumes PREFS.plan, which savePrefs() syncs from the checked radio
 srcBtn.addEventListener("click", refreshFromSource);
 
