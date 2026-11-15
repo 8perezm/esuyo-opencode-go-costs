@@ -123,13 +123,14 @@
     <th id="thSubs">$10 subs needed ↕</th>
     <th id="thPer">Blocks / $10 ↕</th>
     <th>% of allowance ↕<small>+ blocks per allowance</small></th>
+    <th>Plus vs Go ↕<small>max tokens</small></th>
     <th>Max tokens / sub ↕<small>same hit rate</small></th>
     <th class="ref">Input $/1M ↕</th>
     <th class="ref">Cached-read $/1M ↕</th>
     <th class="ref">Output $/1M ↕<small>ref only</small></th>
     <th class="ref" id="thLimit">Go allowance ↕<small>incl. with $10</small></th>
   </tr></thead>
-  <tbody id="body"><tr><td colspan="12" class="loading">Loading live prices from the OpenCode docs…</td></tr></tbody>
+  <tbody id="body"><tr><td colspan="13" class="loading">Loading live prices from the OpenCode docs…</td></tr></tbody>
 </table>
 </div>
 <footer>
@@ -151,6 +152,7 @@
   Press “↻ Refresh from source” to force a re-check.
   If the docs gain a new model row, it appears here automatically on the next load.
   “Tokens / sub” is the total tokens the subscription’s allowance buys at the current hit rate and output share (allowance ÷ blended $/1M price; updates when you change either).
+  “Plus vs Go” is how many times more tokens Go Plus buys than Go for that model (Go Plus allowance ÷ Go allowance; token prices are identical, so hit rate and output share cancel out). Free rows show “—”.
   Form selections (plan, search, tokens, hit rate, output %, free-models toggle, column visibility, sort column and direction) are remembered in this browser via localStorage.
 </footer>
 <script>
@@ -160,8 +162,8 @@
    Go / Go Plus / Go Teams docs tables on every load (official Markdown, page
    HTML, or via a text proxy when the browser blocks cross-site requests)
    and cached in localStorage for an hour. */
-const PREFS_KEY = "go-prefs-v7"; // v7: Go Teams plan supported
-const LEGACY_PREFS_KEYS = ["go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
+const PREFS_KEY = "go-prefs-v8"; // v8: "Plus vs Go" column added before "Max tokens / sub"
+const LEGACY_PREFS_KEYS = ["go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
 const SOURCE_URL = "https://opencode.ai/docs/console/go/";
 const MD_SOURCE_URL = "https://opencode.ai/docs/console/go.md";
 const PROXY_MD_URL = "https://r.jina.ai/https://opencode.ai/docs/console/go.md";
@@ -183,6 +185,7 @@ const COLUMNS = [
   { key: "subs", label: "Subs needed" },
   { key: "per10", label: "Blocks per sub" },
   { key: "allow", label: "% of allowance" },
+  { key: "plusvgo", label: "Plus vs Go" },
   { key: "maxtok", label: "Max tokens / sub" },
   { key: "input", label: "Input $/1M" },
   { key: "cached", label: "Cached-read $/1M" },
@@ -201,13 +204,13 @@ function loadPrefs() {
     try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   };
   let p = null;
-  let legacyGen = 0; // 0 = current, 6 = v6 (same order), 5 = v5 (same order), 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
+  let legacyGen = 0; // 0 = current, 7 = v7 (pre-Plus-vs-Go), 6 = v6, 5 = v5, 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
   try { p = parse(localStorage.getItem(PREFS_KEY)); } catch { p = null; }
   if (!p) {
     for (const k of LEGACY_PREFS_KEYS) {
       try {
         const lp = parse(localStorage.getItem(k));
-        if (lp) { p = lp; legacyGen = k === "go-prefs-v6" ? 6 : k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
+        if (lp) { p = lp; legacyGen = k === "go-prefs-v7" ? 7 : k === "go-prefs-v6" ? 6 : k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
       } catch {}
     }
   }
@@ -223,6 +226,7 @@ function loadPrefs() {
         if (sortCol === 1) sortCol = 2;
         else if (sortCol === 2) sortCol = 1;
       }
+      if (legacyGen >= 3 && legacyGen <= 7 && sortCol >= 7) sortCol += 1; // v8: "Plus vs Go" inserted at index 7
       if (sortCol > COLUMNS.length) sortCol = d.sortCol;
     }
     const cols = Object.assign(d.cols, p.cols || {});
@@ -488,7 +492,7 @@ function readLive() {
 let liveInfo = null;
 
 function showError(msg) {
-  tbody.innerHTML = '<tr><td colspan="12" class="loading">Could not load live prices (' +
+  tbody.innerHTML = '<tr><td colspan="13" class="loading">Could not load live prices (' +
     esc(msg) + '). <button type="button" onclick="refreshFromSource()">Retry</button></td></tr>';
   summary.textContent = "0 models";
   setFeed("err", "source parse failed", "Could not parse data from opencode.ai: " + msg);
@@ -642,6 +646,13 @@ function render() {
     const barW = allowPct === null ? 0 : Math.min(100, allowPct);
     const blended = (1 - p) * ((1 - h) * m.input + h * m.cached) + p * m.output; // $ per 1M total tokens
     const maxTok = (lim === null || lim === undefined || blended <= 0) ? Infinity : lim / blended * 1e6;
+    // Plus-vs-Go multiplier: token prices are identical across plans, so the
+    // max-tokens ratio equals the allowance ratio (limitPlus / limit).
+    const goLim = (m.limit === undefined) ? lim : m.limit;
+    const plusLim = (m.limitPlus === undefined) ? goLim : m.limitPlus;
+    const plusVsGo = (goLim === null || goLim === undefined) ?
+      ((plusLim === null || plusLim === undefined) ? null : Infinity) :
+      (!(goLim > 0) ? null : plusLim === null ? Infinity : plusLim / goLim);
     return "<tr>" +
       '<td class="model">' + esc(m.model) + (m.note ? '<span class="tag">' + esc(m.note) + "</span>" : "") + "</td>" +
       '<td class="num cost" data-val="' + subCost.toFixed(6) + '">' + money(subCost) + "</td>" +
@@ -652,6 +663,7 @@ function render() {
       '<td class="num">' + (allowPct === null ? "0%" : allowPct.toFixed(1) + "%") +
         '<div class="bar' + (allowPct !== null && allowPct >= 100 ? " over" : "") + '"><span style="width:' + barW + '%"></span></div>' +
         "<small>" + (allowPct === null ? "free" : (lim / cost).toFixed(1) + " blocks / allowance") + "</small></td>" +
+      '<td class="num" data-val="' + (plusVsGo === null ? "1" : !isFinite(plusVsGo) ? "inf" : String(plusVsGo)) + '">' + (plusVsGo === null ? "—" : !isFinite(plusVsGo) ? "∞" : plusVsGo.toFixed(1) + "×") + "</td>" +
       '<td class="num" data-val="' + (isFinite(maxTok) ? String(Math.round(maxTok)) : "inf") + '">' + fmtTokens(maxTok) + "</td>" +
       '<td class="num ref">$' + m.input + "</td>" +
       '<td class="num ref">$' + m.cached + "</td>" +

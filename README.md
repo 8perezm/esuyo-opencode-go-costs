@@ -65,6 +65,8 @@ Source prices: https://opencode.ai/docs/console/go/ (Go $10/mo plan tables).
 - **"Max tokens / sub"** = `allowance ÷ blended $/1M`, with
   `blended = (1−p) × ((1−h) × input + h × cached) + p × output`. Recomputed when the hit rate or output % changes.
   Allowance here is the active plan's (`limit` vs `limitPlus` vs `limitTeams`).
+- **"Plus vs Go"** = `limitPlus ÷ limit` — how many times more tokens Go Plus buys than Go
+  for that model (prices are identical, so hit rate and output share cancel out; free rows show "—").
 - **Rendering:** `render()` calls `updatePlanHeaders()` first, rebuilds `tbody` cheapest-first from `MODELS`, then
   `applyColVisibility()`, `sortTbody()`, `paintSort()` run in that order.
 - **Controls:** plan radio (Opencode Go default, Opencode Go Plus, Opencode Go Teams), search, total tokens (in millions), hit-rate %, output % of total,
@@ -73,15 +75,16 @@ Source prices: https://opencode.ai/docs/console/go/ (Go $10/mo plan tables).
   driven by the `COLUMNS` array; Model column 0 is always shown).
 - **Sorting:** click any header. Active column is highlighted with ▲/▼, others show ↕.
   Clicking a new column sorts ascending; clicking it again flips direction.
-  The Max-tokens and Sub-cost columns sort by exact value via their `data-val` attribute.
+  The Max-tokens, Sub-cost and Plus-vs-Go columns sort by exact value via their `data-val` attribute.
 - **Feed status badge:** fixed top-right `#feedBadge` dot (`setFeed()`): green `live · all plans`,
   amber `live · partial` (a plan table missing) / `cached — checking…` / `stale — refresh failed`,
   blue pulsing `checking…`, red `source parse failed` (no data). Hover shows details.
 - **Persistence (localStorage):** form state (including plan) + column visibility + sort column/direction
-  are saved under `go-prefs-v7` on every change and restored on load
+  are saved under `go-prefs-v8` on every change and restored on load
   (`restorePrefs()` runs inside `boot()` before first `render()`; unknown/missing keys fall back to defaults,
   `plan` falls back to `"go"`; older prefs migrate with `cost` forced visible and sort index 1↔2 swapped
-  where the Sub-cost/Cost reorder applies (v3 prefs additionally shift `sortCol >= 2` by +1 first).
+  where the Sub-cost/Cost reorder applies (v3 prefs additionally shift `sortCol >= 2` by +1 first;
+  v8 inserts "Plus vs Go" at index 7, shifting later columns by +1).
 
 ## Developing the page
 
@@ -104,7 +107,7 @@ Source prices: https://opencode.ai/docs/console/go/ (Go $10/mo plan tables).
 1. Syntax check the script:
    `python3 -c "import re;print(re.search(r'<script>(.*)</script>',open('index.html').read(),re.S).group(1))" > /tmp/check.js && node --check /tmp/check.js`
 2. Functional check: run the page logic in Node with stubbed `document`/`localStorage`
-   (no `fetch` needed), pre-seed `go-prefs-v6`, call the header click handlers, and
+   (no `fetch` needed), pre-seed `go-prefs-v8`, call the header click handlers, and
    assert on `tbody.innerHTML`, header arrows (`▲/▼/↕`), and stored prefs.
 3. Spot-check math (h = 97%, T = 100M total, 0.8% out): GLM-5.3-Flash cost $3.73,
   sub cost ≈ $0.62 on Go ($3.73 ÷ $60 × $10) and ≈ $0.83 on Go Plus ($3.73 ÷ $180 × $40);
