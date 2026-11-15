@@ -51,9 +51,13 @@
   thead th { background:#111827; color:#fff; text-align:left; padding:10px 12px; cursor:pointer; white-space:nowrap; user-select:none; position:sticky; top:0; }
   thead th small { display:block; font-weight:400; opacity:.7; font-size:11px; }
   thead th.ref { background:#2f3a4a; }
+  thead th.proj { background:#14365f; }
   tbody td.ref { background:#f2f5f9; }
+  tbody td.proj { background:#eef4ff; }
   tbody tr:nth-child(even) td.ref { background:#e9edf3; }
+  tbody tr:nth-child(even) td.proj { background:#e2ecfd; }
   tbody tr:hover td.ref { background:#e2ebfa; }
+  tbody tr:hover td.proj { background:#d7e6fd; }
   thead th.sorted { background:var(--accent); }
   tbody td { padding:9px 12px; border-top:1px solid var(--line); vertical-align:top; }
   tbody tr:nth-child(even) { background:#fafbfc; }
@@ -94,10 +98,7 @@
     <a href="https://opencode.ai/docs/console/go/">OpenCode Go Plus ($40/mo)</a> and
     <a href="https://opencode.ai/docs/console/go/">OpenCode Go Teams ($20/member/mo)</a> comes with a
     different usage allowance, which makes them hard to compare. Token prices are the same on all
-    plans — only the included monthly allowance differs. Pick a plan below and this page lines all
-    models up against one everyday example: around 100 million tokens of coding work, where most of
-    it reuses things the model has already seen. Change the numbers to match how you work — the whole table updates
-    instantly, all right here in your browser.
+    plans — only the included monthly allowance differs. Change the numbers to match how you work.
   </p>
   <div class="controls">
     <div class="plan-group" role="radiogroup" aria-label="Subscription plan">
@@ -107,7 +108,7 @@
       <label><input type="radio" name="plan" value="teams" /> Opencode Go Teams · $20</label>
     </div>
     <div class="checkline"><input id="project" type="checkbox" /><label for="project" title="Project a token workload: shows Total tokens and the cost columns">Project tokens</label></div>
-    <div id="tokensWrap"><label for="tokens">Total tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
+    <div id="tokensWrap"><label for="tokens">Total project tokens (millions)</label><input id="tokens" class="num-in" type="number" value="100" min="1" step="1" /></div>
     <div><label for="hit">Cache hit rate %</label><input id="hit" class="num-in" type="number" value="97" min="0" max="99.99" step="0.5" /></div>
     <div><label for="outPct">Output % of total tokens</label><input id="outPct" class="num-in" type="number" value="0.8" min="0" max="90" step="0.1" /></div>
     <div class="checkline"><input id="showFree" type="checkbox" checked /><label for="showFree">Show free models</label></div>
@@ -128,12 +129,12 @@
 <table id="t">
   <thead><tr>
     <th>Model ↕<small>click to sort</small></th>
-    <th>Sub cost ↕<small>$ of plan</small></th>
-    <th>Cost ↕<small>$ allowance</small></th>
-    <th id="thCash">% of $10 cash ↕</th>
-    <th id="thSubs">$10 subs needed ↕</th>
-    <th id="thPer">Blocks / $10 ↕</th>
-    <th>% of allowance ↕<small>+ blocks per allowance</small></th>
+    <th class="proj">Sub cost ↕<small>$ of plan</small></th>
+    <th class="proj">Cost ↕<small>$ allowance</small></th>
+    <th class="proj" id="thCash">% of $10 cash ↕</th>
+    <th class="proj" id="thSubs">$10 subs needed ↕</th>
+    <th class="proj" id="thPer">Blocks / $10 ↕</th>
+    <th class="proj">% of allowance ↕<small>+ blocks per allowance</small></th>
     <th>Plus vs Go ↕<small>max tokens</small></th>
     <th>Teams vs Go ↕<small>max tokens</small></th>
     <th>Max tokens / sub ↕<small>same hit rate</small></th>
@@ -211,7 +212,7 @@ const COLUMNS = [
 function defaultPrefs() {
   const cols = {};
   COLUMNS.forEach((c) => { cols[c.key] = true; });
-  return { plan: "go", project: false, tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 1, sortDir: 1 }; // sort = Sub cost ↑
+  return { plan: "go", project: false, tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 9, sortDir: -1 }; // sort = Max tokens / sub ↓ (largest first = cheapest first)
 }
 
 // Columns that need a projected token workload (Total tokens). They are
@@ -631,6 +632,23 @@ function applyColVisibility() {
   });
 }
 
+function ensureVisibleSort() {
+  // If the sorted column is hidden (e.g. stored Sub-cost sort while Project
+  // is off), fall back to Max tokens / sub so the ▲/▼ indicator stays visible.
+  // Max-tokens descending matches cheapest-first ordering.
+  const hidden = hiddenColIndexes();
+  if (!hidden.has(sortCol)) return;
+  const maxtokIdx = COLUMNS.findIndex((c) => c.key === "maxtok") + 1;
+  if (!hidden.has(maxtokIdx)) {
+    sortCol = maxtokIdx; sortDir = -1;
+  } else {
+    for (let i = 0; i <= COLUMNS.length; i++) {
+      if (!hidden.has(i)) { sortCol = i; sortDir = 1; break; }
+    }
+  }
+  PREFS.sortCol = sortCol; PREFS.sortDir = sortDir;
+}
+
 function updatePlanHeaders() {
   const plan = planOf(PREFS.plan);
   const setFirst = (id, label) => {
@@ -686,12 +704,12 @@ function render() {
       (!(goLim > 0) ? null : teamsLim === null ? Infinity : teamsLim / goLim);
     return "<tr>" +
       '<td class="model">' + esc(m.model) + (m.note ? '<span class="tag">' + esc(m.note) + "</span>" : "") + "</td>" +
-      '<td class="num cost" data-val="' + subCost.toFixed(6) + '">' + money(subCost) + "</td>" +
-      '<td class="num cost">' + money(cost) + "</td>" +
-      '<td class="num">' + (cost === 0 ? "0%" : cashPct.toFixed(1) + "%") + "</td>" +
-      '<td class="num">' + (cost === 0 ? "0" : subs.toFixed(2) + "×") + "</td>" +
-      '<td class="num">' + (!isFinite(perSub) ? "∞" : perSub.toFixed(1) + "×") + "</td>" +
-      '<td class="num">' + (allowPct === null ? "0%" : allowPct.toFixed(1) + "%") +
+      '<td class="num proj cost" data-val="' + subCost.toFixed(6) + '">' + money(subCost) + "</td>" +
+      '<td class="num proj cost">' + money(cost) + "</td>" +
+      '<td class="num proj">' + (cost === 0 ? "0%" : cashPct.toFixed(1) + "%") + "</td>" +
+      '<td class="num proj">' + (cost === 0 ? "0" : subs.toFixed(2) + "×") + "</td>" +
+      '<td class="num proj">' + (!isFinite(perSub) ? "∞" : perSub.toFixed(1) + "×") + "</td>" +
+      '<td class="num proj">' + (allowPct === null ? "0%" : allowPct.toFixed(1) + "%") +
         '<div class="bar' + (allowPct !== null && allowPct >= 100 ? " over" : "") + '"><span style="width:' + barW + '%"></span></div>' +
         "<small>" + (allowPct === null ? "free" : (lim / cost).toFixed(1) + " blocks / allowance") + "</small></td>" +
       '<td class="num" data-val="' + (plusVsGo === null ? "1" : !isFinite(plusVsGo) ? "inf" : String(plusVsGo)) + '">' + (plusVsGo === null ? "—" : !isFinite(plusVsGo) ? "∞" : plusVsGo.toFixed(1) + "×") + "</td>" +
@@ -705,6 +723,7 @@ function render() {
   }).join("");
 
   applyColVisibility();
+  ensureVisibleSort();
   sortTbody();
   paintSort();
 
