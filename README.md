@@ -1,14 +1,14 @@
-# OpenCode Go — $10 / Go Plus $40 Subscription Cost Comparison Page
+# OpenCode Go — $10 / Go Plus $40 / Go Teams $20 Subscription Cost Comparison Page
 
-A single self-contained HTML page that answers: **"What can an OpenCode Go ($10/mo) or Go Plus ($40/mo) subscription get you?"**
+A single self-contained HTML page that answers: **"What can an OpenCode Go ($10/mo), Go Plus ($40/mo), or Go Teams ($20/member/mo) subscription get you?"**
 
-It lines up every model on both plans against one everyday example (default:
+It lines up every model on all plans against one everyday example (default:
 100M total tokens at a 97% prompt-cache hit rate with 0.8% output share) so models with different
-monthly allowances can be compared side by side. Token prices are identical on both plans —
-only the included monthly allowance differs. A plan radio (Opencode Go default, Opencode Go Plus)
-switches the whole table between the two allowances.
+monthly allowances can be compared side by side. Token prices are identical on all plans —
+only the included monthly allowance differs. A plan radio (Opencode Go default, Opencode Go Plus,
+Opencode Go Teams) switches the whole table between the allowances.
 
-Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
+Source prices: https://opencode.ai/docs/console/go/ (Go $10/mo plan tables).
 
 ## Files
 
@@ -24,28 +24,31 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
   happen in the `<script>`; the only network requests are the Google Fonts
   stylesheet plus the live price fetch below.
 - **Price data is never stored in the page.** `MODELS` starts empty and is filled
-  on every load by `refreshFromSource()`, which fetches the Go **and** Go Plus
-  tables from the docs and updates the table in place. Each entry looks like
-  `{ model, input, output, cached, limit, limitPlus, note? }` — prices are $ per
+  on every load by `refreshFromSource()`, which fetches the Go, Go Plus **and**
+  Go Teams tables from the docs and updates the table in place. Each entry looks like
+  `{ model, input, output, cached, limit, limitPlus, limitTeams, note? }` — prices are $ per
   1M tokens, `limit` is the Go-plan ($10) monthly allowance, `limitPlus` the Go
-  Plus ($40) allowance (`null` = Unlimited/free). `activeLimit(m)` /
+  Plus ($40) allowance, `limitTeams` the Go Teams ($20/member) allowance
+  (`null` = Unlimited/free). `activeLimit(m)` /
   `activePrice()` select the allowance and plan price from the radio
   (`PREFS.plan`, `"go"` default); all cost-derived columns
   (sub cost, % of cash, subs needed, blocks per sub, % of allowance, max tokens,
   allowance) and the table headers (`#thCash`, `#thSubs`, `#thPer`, `#thLimit`)
   follow the active plan. Successful fetches are cached for 1 hour under
-  `go-live-v2` as `{ go, plus }` so reloads paint instantly, then revalidate in
-  the background. Flow: try the docs URL directly (usually blocked by the
-  browser's cross-site rules), then fall back to the Jina text-proxy mirror
-  (`PROXY_URL`), which returns the page as markdown. Parsing:
+  `go-live-v3` as `{ go, plus, teams }` so reloads paint instantly, then revalidate in
+  the background. Flow: try the official Markdown (`MD_SOURCE_URL`,
+  contains all three plan tables) directly, then the docs HTML (`SOURCE_URL`),
+  then fall back to the Jina text-proxy mirrors (`PROXY_MD_URL` first — it
+  carries all plans — then the legacy `PROXY_URL` HTML mirror, which only
+  renders the Go tab). Parsing:
   `parseSourceMarkdown` collects every pipe-table with Input + Monthly-limit
-  columns (Go first, Go Plus second); `parseSourceHtml` prefers the
-  `[slot="go"]` / `[slot="go-plus"]` tables and falls back to smallest-total =
-  Go, largest = Go Plus. `mergePlanRows` joins them by model name; when a Go
-  Plus row is missing (the text-proxy mirror currently renders only the Go tab,
-  so proxy refreshes update Go prices only, and legacy `go-live-v1` caches carry
-  no Plus table), `limitPlus` falls back to the live Go `limit` until a direct
-  fetch supplies both tables. Per-cell rules: `Free` → 0,
+  columns (Go first, Go Plus second, Go Teams third); `parseSourceHtml` prefers the
+  `[data-plan-panel="go|go-plus|go-teams"]` panels (legacy `[slot="…"]`
+  supported) and falls back to smallest-total = Go, middle = Teams, largest =
+  Go Plus. `mergePlanRows` joins them by model name; when a plan row is missing
+  (the legacy HTML-proxy mirror only renders the Go tab, and legacy
+  `go-live-v2` / `go-live-v1` caches carry no Teams table), that plan's limit
+  falls back to the live Go `limit` until a full fetch supplies all tables. Per-cell rules: `Free` → 0,
   struck-through discounts (`~~$4.00~~ $2.00`) → last price wins, `Unlimited`
   limit → `null`, tiered names normalized (`"(≤ 256K tokens)"` → `"(≤ 256K)"`),
   and the `limited time` tag derived from the limit cell. New model rows in the
@@ -58,21 +61,24 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
   where `freshM`/`cachedM`/`outM` come from the total-tokens + hit-rate + output-% controls
   (`outM = totalM × p`, `inM = totalM × (1−p)`, split into fresh/cached by `h`).
   **"Sub cost"** (pro-rata subscription burn) = `cost ÷ allowance × plan price`
-  (allowance = active plan's `limit`/`limitPlus`; e.g. $3.73 ÷ $60 × $10 ≈ $0.62 on Go).
+  (allowance = active plan's `limit`/`limitPlus`/`limitTeams`; e.g. $3.73 ÷ $60 × $10 ≈ $0.62 on Go).
 - **"Max tokens / sub"** = `allowance ÷ blended $/1M`, with
   `blended = (1−p) × ((1−h) × input + h × cached) + p × output`. Recomputed when the hit rate or output % changes.
-  Allowance here is the active plan's (`limit` vs `limitPlus`).
+  Allowance here is the active plan's (`limit` vs `limitPlus` vs `limitTeams`).
 - **Rendering:** `render()` calls `updatePlanHeaders()` first, rebuilds `tbody` cheapest-first from `MODELS`, then
   `applyColVisibility()`, `sortTbody()`, `paintSort()` run in that order.
-- **Controls:** plan radio (Opencode Go default, Opencode Go Plus), search, total tokens (in millions), hit-rate %, output % of total,
+- **Controls:** plan radio (Opencode Go default, Opencode Go Plus, Opencode Go Teams), search, total tokens (in millions), hit-rate %, output % of total,
   "Show free models" checkbox
   (free = `input === 0 && cached === 0`), column chooser (`<details id="colpick">`,
   driven by the `COLUMNS` array; Model column 0 is always shown).
 - **Sorting:** click any header. Active column is highlighted with ▲/▼, others show ↕.
   Clicking a new column sorts ascending; clicking it again flips direction.
   The Max-tokens and Sub-cost columns sort by exact value via their `data-val` attribute.
+- **Feed status badge:** fixed top-right `#feedBadge` dot (`setFeed()`): green `live · all plans`,
+  amber `live · partial` (a plan table missing) / `cached — checking…` / `stale — refresh failed`,
+  blue pulsing `checking…`, red `source parse failed` (no data). Hover shows details.
 - **Persistence (localStorage):** form state (including plan) + column visibility + sort column/direction
-  are saved under `go-prefs-v6` on every change and restored on load
+  are saved under `go-prefs-v7` on every change and restored on load
   (`restorePrefs()` runs inside `boot()` before first `render()`; unknown/missing keys fall back to defaults,
   `plan` falls back to `"go"`; older prefs migrate with `cost` forced visible and sort index 1↔2 swapped
   where the Sub-cost/Cost reorder applies (v3 prefs additionally shift `sortCol >= 2` by +1 first).
@@ -104,8 +110,8 @@ Source prices: https://opencode.ai/v2/docs/console/go/ (Go $10/mo plan table).
   sub cost ≈ $0.62 on Go ($3.73 ÷ $60 × $10) and ≈ $0.83 on Go Plus ($3.73 ÷ $180 × $40);
    at 0% out it reproduces the old input-only $3.36. Session scale (11.9M total,
    0.99% out): Muse Spark 1.3 ≈ $0.082.
-4. Test the source parser: download the proxy markdown
-   (`curl -s "https://r.jina.ai/https://opencode.ai/v2/docs/console/go/" -o /tmp/go.md`),
+4. Test the source parser: download the official markdown
+   (`curl -s "https://opencode.ai/docs/console/go.md" -o /tmp/go.md`),
    evaluate the page's pure parser functions in Node (slice the script from
    `function parsePrice` to `function readLive` — no DOM stubs needed),
    and assert the parsed rows are well-formed: ≥ 30 rows, non-empty names,
