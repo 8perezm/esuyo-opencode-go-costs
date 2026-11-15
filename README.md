@@ -1,128 +1,34 @@
-# OpenCode Go — $10 / Go Plus $40 / Go Teams $20 Subscription Cost Comparison Page
+# OpenCode Go — Subscription Cost Comparison
 
-A single self-contained HTML page that answers: **"What can an OpenCode Go ($10/mo), Go Plus ($40/mo), or Go Teams ($20/member/mo) subscription get you?"**
+Compares every model on **OpenCode Go ($10/mo)**, **Go Plus ($40/mo)**,
+and **Go Teams ($20/member/mo)** side by side. Token prices are identical on
+all plans — only the monthly allowance differs.
 
-It lines up every model on all plans against one everyday example (default:
-100M total tokens at a 97% prompt-cache hit rate with 0.8% output share) so models with different
-monthly allowances can be compared side by side. Token prices are identical on all plans —
-only the included monthly allowance differs. A plan radio (Opencode Go default, Opencode Go Plus,
-Opencode Go Teams) switches the whole table between the allowances.
+![Page screenshot](docs/screenshot.png)
 
-Source prices: https://opencode.ai/docs/console/go/ (Go $10/mo plan tables).
+Live page: single self-contained `index.html` (no build step). It fetches the
+latest Go / Go Plus / Go Teams tables from the
+[OpenCode Go pricing docs](https://opencode.ai/docs/console/go/) on every load,
+caches for an hour, and renders the comparison.
 
-## Files
+- Plan radio switches all allowance-derived columns.
+- Optional **Project tokens** workload reveals the blue-tinted cost columns.
+- Default sort is **Max tokens / sub ▼** (largest first = cheapest first).
+- Search, column chooser, and all form state persist in localStorage.
 
-- `index.html` — the whole app (markup + CSS + JS, no build step, no dependencies).
-  Open it directly in a browser via `file://`, or serve the folder:
-  `python3 -m http.server 8000` → `http://localhost:8000/index.html`
-- No other files are needed. No prices are stored in the page: it fetches the
-  live pricing table from the source docs on every load (see below).
+## Use
 
-## How it works
+Open directly (`file://`) or serve the folder:
 
-- **Fully client-side.** No server code, no build step. All math and rendering
-  happen in the `<script>`; the only network requests are the Google Fonts
-  stylesheet plus the live price fetch below.
-- **Price data is never stored in the page.** `MODELS` starts empty and is filled
-  on every load by `refreshFromSource()`, which fetches the Go, Go Plus **and**
-  Go Teams tables from the docs and updates the table in place. Each entry looks like
-  `{ model, input, output, cached, limit, limitPlus, limitTeams, note? }` — prices are $ per
-  1M tokens, `limit` is the Go-plan ($10) monthly allowance, `limitPlus` the Go
-  Plus ($40) allowance, `limitTeams` the Go Teams ($20/member) allowance
-  (`null` = Unlimited/free). `activeLimit(m)` /
-  `activePrice()` select the allowance and plan price from the radio
-  (`PREFS.plan`, `"go"` default); all cost-derived columns
-  (sub cost, % of cash, subs needed, blocks per sub, % of allowance, max tokens,
-  allowance) and the table headers (`#thCash`, `#thSubs`, `#thPer`, `#thLimit`)
-  follow the active plan. Successful fetches are cached for 1 hour under
-  `go-live-v3` as `{ go, plus, teams }` so reloads paint instantly, then revalidate in
-  the background. Flow: try the official Markdown (`MD_SOURCE_URL`,
-  contains all three plan tables) directly, then the docs HTML (`SOURCE_URL`),
-  then fall back to the Jina text-proxy mirrors (`PROXY_MD_URL` first — it
-  carries all plans — then the legacy `PROXY_URL` HTML mirror, which only
-  renders the Go tab). Parsing:
-  `parseSourceMarkdown` collects every pipe-table with Input + Monthly-limit
-  columns (Go first, Go Plus second, Go Teams third); `parseSourceHtml` prefers the
-  `[data-plan-panel="go|go-plus|go-teams"]` panels (legacy `[slot="…"]`
-  supported) and falls back to smallest-total = Go, middle = Teams, largest =
-  Go Plus. `mergePlanRows` joins them by model name; when a plan row is missing
-  (the legacy HTML-proxy mirror only renders the Go tab, and legacy
-  `go-live-v2` / `go-live-v1` caches carry no Teams table), that plan's limit
-  falls back to the live Go `limit` until a full fetch supplies all tables. Per-cell rules: `Free` → 0,
-  struck-through discounts (`~~$4.00~~ $2.00`) → last price wins, `Unlimited`
-  limit → `null`, tiered names normalized (`"(≤ 256K tokens)"` → `"(≤ 256K)"`),
-  and the `limited time` tag derived from the limit cell. New model rows in the
-  source appear automatically — nothing is matched against a stored list. The
-  "Refresh from source" button forces a re-check on demand. On total failure
-  with cached prices the page reports why and keeps them; with no data at all
-  it shows an error row with a Retry button instead of an empty table.
-- **Cost formula** (output included at the full output rate):
-  `cost = freshM × input + cachedM × cached-read + outM × output`,
-  where `freshM`/`cachedM`/`outM` come from the total-tokens + hit-rate + output-% controls
-  (`outM = totalM × p`, `inM = totalM × (1−p)`, split into fresh/cached by `h`).
-  **"Sub cost"** (pro-rata subscription burn) = `cost ÷ allowance × plan price`
-  (allowance = active plan's `limit`/`limitPlus`/`limitTeams`; e.g. $3.73 ÷ $60 × $10 ≈ $0.62 on Go).
-- **"Max tokens / sub"** = `allowance ÷ blended $/1M`, with
-  `blended = (1−p) × ((1−h) × input + h × cached) + p × output`. Recomputed when the hit rate or output % changes.
-  Allowance here is the active plan's (`limit` vs `limitPlus` vs `limitTeams`).
-- **"Plus vs Go"** = `limitPlus ÷ limit` — how many times more tokens Go Plus buys than Go
-  for that model (prices are identical, so hit rate and output share cancel out; free rows show "—").
-  **"Teams vs Go"** is the same comparison against the Go Teams allowance.
-- **Rendering:** `render()` calls `updatePlanHeaders()` first, rebuilds `tbody` cheapest-first from `MODELS`, then
-  `applyColVisibility()`, `sortTbody()`, `paintSort()` run in that order.
-- **Controls:** plan radio (Opencode Go default, Opencode Go Plus, Opencode Go Teams), search, "Project tokens"
-  checkbox (off by default; reveals the Total tokens field when on), total tokens (in millions, hidden unless
-  projecting), hit-rate %, output % of total, "Show free models" checkbox
-  (free = `input === 0 && cached === 0`), column chooser (`<details id="colpick">`,
-  driven by the `COLUMNS` array; Model column 0 is always shown). While projection is off the
-  workload-derived columns (`TOKEN_COLS`: Sub cost, Cost, % of cash, Subs needed, Blocks per sub,
-  % of allowance) are force-hidden and their chooser boxes disabled.
-- **Sorting:** click any header. Active column is highlighted with ▲/▼, others show ↕.
-  Clicking a new column sorts ascending; clicking it again flips direction.
-  The Max-tokens, Sub-cost, Plus-vs-Go and Teams-vs-Go columns sort by exact value via their `data-val` attribute.
-- **Feed status badge:** fixed top-right `#feedBadge` dot (`setFeed()`): green `live · all plans`,
-  amber `live · partial` (a plan table missing) / `cached — checking…` / `stale — refresh failed`,
-  blue pulsing `checking…`, red `source parse failed` (no data). Hover shows details.
-- **Persistence (localStorage):** form state (including plan) + column visibility + sort column/direction
-  are saved under `go-prefs-v10` on every change and restored on load
-  (`restorePrefs()` runs inside `boot()` before first `render()`; unknown/missing keys fall back to defaults,
-  `plan` falls back to `"go"`; older prefs migrate with `cost` forced visible and sort index 1↔2 swapped
-  where the Sub-cost/Cost reorder applies (v3 prefs additionally shift `sortCol >= 2` by +1 first;
-  v8 inserts "Plus vs Go" at index 7, shifting later columns by +1).
+```sh
+python -m http.server 8000
+# → http://localhost:8000/index.html
+```
 
-## Developing the page
+No prices are stored in the repo — see live fetch behavior below.
 
-- **No price maintenance:** there is no price list to edit — new models, price
-  changes, and allowance changes in the source table flow in automatically.
-  Only touch the parser if the docs change the table *shape* (e.g. a new price
-  column to capture in `rowsFromCells`, or renamed headers).
-- **Add a column:** append to `COLUMNS` (`{ key, label }`), add a `<th>`, emit the
-  `<td>` in `render()`'s row template (add `data-val` with the raw number if the
-  display text is formatted with suffixes like M/B), and bump `colspan` on the
-  loading row. Saved prefs automatically default new columns to visible.
-- **Change defaults:** edit `defaultPrefs()` (`plan: "go"`, `tokensM: 100, hit: 97, outPct: 0.8, q: "",
-  showFree: true`, all columns on, sort = Sub cost ascending).
-- **Styling:** plain CSS in `<style>`; font is Rubik via Google Fonts link.
-  Layout is full-width, no card wrapper. Active sort header uses `th.sorted`.
-- **Formatting helpers:** `money(n)` for $ amounts, `fmtTokens(n)` for M/B token counts.
+## Docs
 
-## Testing changes
-
-1. Syntax check the script:
-   `python3 -c "import re;print(re.search(r'<script>(.*)</script>',open('index.html').read(),re.S).group(1))" > /tmp/check.js && node --check /tmp/check.js`
-2. Functional check: run the page logic in Node with stubbed `document`/`localStorage`
-   (no `fetch` needed), pre-seed `go-prefs-v10`, call the header click handlers, and
-   assert on `tbody.innerHTML`, header arrows (`▲/▼/↕`), and stored prefs.
-3. Spot-check math (h = 97%, T = 100M total, 0.8% out): GLM-5.3-Flash cost $3.73,
-  sub cost ≈ $0.62 on Go ($3.73 ÷ $60 × $10) and ≈ $0.83 on Go Plus ($3.73 ÷ $180 × $40);
-   at 0% out it reproduces the old input-only $3.36. Session scale (11.9M total,
-   0.99% out): Muse Spark 1.3 ≈ $0.082.
-4. Test the source parser: download the official markdown
-   (`curl -s "https://opencode.ai/docs/console/go.md" -o /tmp/go.md`),
-   evaluate the page's pure parser functions in Node (slice the script from
-   `function parsePrice` to `function readLive` — no DOM stubs needed),
-   and assert the parsed rows are well-formed: ≥ 30 rows, non-empty names,
-   non-negative prices, positive-or-null limits. Also exercise
-   `refreshFromSource` with stubbed `fetch` (direct rejects, proxy resolves)
-   and with all-rejecting `fetch` for both failure paths (with and without
-   cached `MODELS`).
+- [How it works](docs/how-it-works.md) — live fetch, cost formulas, table behavior
+- [Developing](docs/developing.md) — add a column, change defaults, styling
+- [Testing](docs/testing.md) — syntax, functional, and parser checks
