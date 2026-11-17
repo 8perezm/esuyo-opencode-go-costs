@@ -23,8 +23,8 @@
    `function parseModelsApi` to `function readLive` — no DOM stubs needed), and
    assert well-formed rows: ≥ 30 rows, non-empty names, non-negative prices,
    positive-or-null limits. Also assert the proxy envelope
-   (`r.jina.ai/.../inference/go/v1/models`) parses to the same row count,
-   and that the legacy docs Markdown (`go.md`) now throws
-   "pricing table not found" (tables moved to the API). Exercise `refreshFromSource` with stubbed `fetch`
-   (direct rejects, proxy resolves) and all-rejecting `fetch` for both failure
-   paths (with and without cached `MODELS`).
+   (`r.jina.ai/.../inference/go/v1/models`) parses identically, invalid JSON /
+   empty lists / short lists throw, garbage entries are skipped, and hostile
+   model names (`<script>`, `<img onerror>`) render escaped. Exercise
+   `refreshFromSource` with stubbed `fetch` (API rejects, proxy resolves) and
+   all-rejecting `fetch` for both failure paths (with and without cached `MODELS`).
