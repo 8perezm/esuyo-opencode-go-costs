@@ -81,6 +81,8 @@
   #ghLink:hover { border-color:var(--accent); color:var(--accent); }
   #ghLink svg { width:16px; height:16px; fill:currentColor; }
   #feedBadge { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:12px; color:var(--muted); box-shadow:0 4px 14px rgba(16,24,40,.10); }
+  #feedText { color:inherit; text-decoration:none; cursor:pointer; }
+  #feedText:hover { text-decoration:underline; }
   #feedDot { width:10px; height:10px; border-radius:50%; background:#9aa3af; flex:none; }
   #feedBadge[data-state="ok"] #feedDot { background:var(--green); }
   #feedBadge[data-state="warn"] #feedDot { background:#d97706; }
@@ -90,15 +92,17 @@
 </style>
 </head>
 <body>
-<div id="topRight"><a id="ghLink" href="https://github.com/8perezm/esuyo-opencode-go-costs" target="_blank" rel="noopener" title="View source on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>Github</a><div id="feedBadge" data-state="busy" title="Checking OpenCode source…"><span id="feedDot"></span><span id="feedText">checking…</span></div></div>
+<div id="topRight"><a id="ghLink" href="https://github.com/8perezm/esuyo-opencode-go-costs" target="_blank" rel="noopener" title="View source on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>Github</a><div id="feedBadge" data-state="busy" title="Checking OpenCode source…"><span id="feedDot"></span><a id="feedText" href="https://opencode.ai/inference/go/v1/models" target="_blank" rel="noopener" title="Open the live OpenCode Go models endpoint">checking…</a></div></div>
 <header>
   <h1>Get the most value from OpenCode Go</h1>
   <p class="sub">
-    Every model on <a href="https://opencode.ai/docs/console/go/">OpenCode Go ($10/mo)</a>,
-    <a href="https://opencode.ai/docs/console/go/">OpenCode Go Plus ($40/mo)</a> and
-    <a href="https://opencode.ai/docs/console/go/">OpenCode Go Teams ($20/member/mo)</a> comes with a
+    Every model on <a href="https://opencode.ai/console/go">OpenCode Go ($10/mo)</a>,
+    <a href="https://opencode.ai/console/go">OpenCode Go Plus ($40/mo)</a> and
+    <a href="https://opencode.ai/console/go">OpenCode Go Teams ($20/member/mo)</a> comes with a
     different usage allowance, which makes them hard to compare. Token prices are the same on all
     plans — only the included monthly allowance differs. Change the numbers to match how you work.
+    Prices and allowances are fetched live from the OpenCode Go models endpoint at
+    <a href="https://opencode.ai/inference/go/v1/models">https://opencode.ai/inference/go/v1/models</a>.
   </p>
   <div class="controls">
     <div class="plan-group" role="radiogroup" aria-label="Subscription plan">
