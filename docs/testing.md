@@ -17,11 +17,14 @@
    ($3.73 ÷ $180 × $40); at 0% out it reproduces the old input-only $3.36.
    Session scale (11.9M total, 0.99% out): Muse Spark 1.3 ≈ $0.082.
 
-4. Parser: download the official markdown
-   (`curl -s "https://opencode.ai/docs/console/go.md" -o /tmp/go.md`),
-   evaluate the pure parser functions in Node (slice the script from
-   `function parsePrice` to `function readLive` — no DOM stubs needed), and
-   assert well-formed rows: ≥ 30 rows, non-empty names, non-negative prices,
-   positive-or-null limits. Exercise `refreshFromSource` with stubbed `fetch`
-   (direct rejects, proxy resolves) and all-rejecting `fetch` for both failure
-   paths (with and without cached `MODELS`).
+4. Sources: fetch the models endpoint
+   (`curl -s "https://opencode.ai/inference/go/v1/models" -o /tmp/go-models.json`)
+   and evaluate `parseSourceModels` in Node (slice the script from
+   `function parsePrice` to `function readLive` — no DOM stubs needed). Assert
+   well-formed rows: ≥ 30 rows, non-empty names, non-negative prices, and
+   per-plan allowances (`go` > 0 for paid models, `null` for free rows). Also
+   download the Markdown fallback (`curl -s "https://opencode.ai/docs/console/go.md" -o /tmp/go.md`)
+   and check `parseSourceMarkdown` still returns well-formed rows if the docs
+   regain pricing tables. Exercise `refreshFromSource` with stubbed `fetch`
+   (direct endpoint rejects, proxy resolves) and all-rejecting `fetch` for both
+   failure paths (with and without cached `MODELS`).

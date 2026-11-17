@@ -7,9 +7,10 @@ all plans — only the monthly allowance differs.
 ![Page screenshot](docs/screenshot.png)
 
 Live page: single self-contained `index.html` (no build step). It fetches the
-latest Go / Go Plus / Go Teams tables from the
-[OpenCode Go pricing docs](https://opencode.ai/docs/console/go/) on every load,
-caches for an hour, and renders the comparison.
+latest Go / Go Plus / Go Teams prices and allowances from the
+[OpenCode Go models endpoint](https://opencode.ai/inference/go/v1/models) on
+every load, caches for an hour, and renders the comparison. The docs page,
+Markdown, and text proxies remain as fallbacks.
 
 - Plan radio switches all allowance-derived columns.
 - Optional **Project tokens** workload reveals the blue-tinted cost columns.

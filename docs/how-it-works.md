@@ -8,9 +8,18 @@ plus the live price fetch.
 
 `MODELS` starts empty and is filled on every load by `refreshFromSource()`:
 
-- Tries in order: official Markdown (`go.md`, all three plan tables) →
-  docs HTML → Jina text-proxy mirror of the Markdown → legacy HTML mirror
-  (Go tab only).
+- Tries in order: models endpoint (`/inference/go/v1/models`, CORS enabled) →
+  Jina text-proxy mirror of that endpoint → official Markdown (`go.md`) →
+  docs HTML → text-proxy mirrors. The endpoint is the current source of truth;
+  the docs parsers are fallbacks.
+- Models parsing (`parseSourceModels`): `data[]` rows; `name` is the display
+  name, `cost.text.input.price` / `.input.cache.read` / `.output.price` are the
+  per-1M prices, and `go.monthly_usage.go` / `"go-plus"` / `"go-teams"` are the
+  monthly allowances. Free models have $0 prices and omit `monthly_usage`
+  (allowance `null` = Unlimited). Recurring `cost.multipliers` (peak hours)
+  expand into extra `(Peak)` rows alongside the `(Off-Peak)` base row; a
+  scheduled date multiplier is applied once its date arrives, and tagged on the
+  base row before then.
 - Markdown parsing (`parseSourceMarkdown`): every pipe-table with
   Input + Monthly-limit columns. Order is Go, Go Plus, Go Teams.
 - HTML parsing (`parseSourceHtml`): prefers
@@ -19,10 +28,10 @@ plus the live price fetch.
 - `mergePlanRows()` joins plans by model name. Prices are identical across
   plans — only `limit` (Go $10), `limitPlus` (Go Plus $40), `limitTeams`
   (Go Teams $20/member) differ. A missing plan row falls back to the Go limit.
-- Cell rules: `Free` → 0, `~~old~~ new` → last price wins,
+- Cell rules (docs fallbacks): `Free` → 0, `~~old~~ new` → last price wins,
   `Unlimited` limit → `null`, `limited time` tag derived from the limit cell.
 - Successful fetches cache `{ go, plus, teams }` for 1 hour (`go-live-v3`);
-  next load paints from cache, then revalidates. New docs rows appear
+  next load paints from cache, then revalidates. New API rows appear
   automatically. Total failure keeps cached prices (with reason) or shows an
   error row with Retry.
 

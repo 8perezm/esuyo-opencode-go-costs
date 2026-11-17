@@ -112,7 +112,7 @@
     <div><label for="hit">Cache hit rate %</label><input id="hit" class="num-in" type="number" value="97" min="0" max="99.99" step="0.5" /></div>
     <div><label for="outPct">Output % of total tokens</label><input id="outPct" class="num-in" type="number" value="0.8" min="0" max="90" step="0.1" /></div>
     <div class="checkline"><input id="showFree" type="checkbox" checked /><label for="showFree">Show free models</label></div>
-    <div><button id="srcBtn" type="button" title="Fetch the latest Go-plan table from the OpenCode docs and update the table">↻ Refresh from source</button></div>
+    <div><button id="srcBtn" type="button" title="Fetch the latest Go prices and allowances from OpenCode and update the table">↻ Refresh from source</button></div>
   </div>
 </header>
 <div class="tablebar">
@@ -143,7 +143,7 @@
     <th class="ref">Output $/1M ↕<small>ref only</small></th>
     <th class="ref" id="thLimit">Go allowance ↕<small>incl. with $10</small></th>
   </tr></thead>
-  <tbody id="body"><tr><td colspan="14" class="loading">Loading live prices from the OpenCode docs…</td></tr></tbody>
+  <tbody id="body"><tr><td colspan="14" class="loading">Loading live prices from OpenCode…</td></tr></tbody>
 </table>
 </div>
 <footer>
@@ -157,13 +157,16 @@
   (e.g. $3.73 on a $60 Go allowance = 6.2%, ≈16.1 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one subscription for that model.<br/>
   <strong>Assumptions:</strong> “Total tokens” splits into input and output by “Output %”;
   output tokens are always charged at the full output rate (no cache discount on generated text).
-  Tiered rows (context-size / peak / off-peak) are listed separately as in the official table. Rows priced Free in the source table cost $0.
-  This page stores no prices: it fetches the latest Go / Go Plus / Go Teams tables live from the
-  <a href="https://opencode.ai/docs/console/go/">OpenCode Go pricing</a> docs on every load
-  (official Markdown first, then the page HTML, then via a text proxy when the browser blocks cross-site requests);
+  Prices are the standard rates reported by the Go models endpoint; models with
+  peak-time multipliers get separate (Off-Peak) / (Peak) rows, and a scheduled
+  price change is applied when it takes effect (tagged before then). Rows priced
+  Free cost $0.
+  This page stores no prices: it fetches the latest Go / Go Plus / Go Teams prices and allowances live from the
+  <a href="https://opencode.ai/docs/console/go/">OpenCode Go</a> models endpoint on every load
+  (the docs page, official Markdown, and text proxies are fallbacks when the endpoint or cross-site requests fail);
   successful fetches are cached in this browser for an hour for fast reloads.
   Press “↻ Refresh from source” to force a re-check.
-  If the docs gain a new model row, it appears here automatically on the next load.
+  If OpenCode adds a new model, it appears here automatically on the next load.
   “Tokens / sub” is the total tokens the subscription’s allowance buys at the current hit rate and output share (allowance ÷ blended $/1M price; updates when you change either).
   “Plus vs Go” is how many times more tokens Go Plus buys than Go for that model (Go Plus allowance ÷ Go allowance; token prices are identical, so hit rate and output share cancel out). Free rows show “—”.
   “Teams vs Go” is the same comparison against the Go Teams allowance. Free rows show “—”.
@@ -173,15 +176,16 @@
 <script>
 "use strict";
 /* Fully client-side. No server, no build: all math + rendering happens here.
-   Prices are NOT stored in this page - they are fetched live from the official
-   Go / Go Plus / Go Teams docs tables on every load (official Markdown, page
-   HTML, or via a text proxy when the browser blocks cross-site requests)
-   and cached in localStorage for an hour. */
+   Prices are NOT stored in this page - they are fetched live from the OpenCode
+   Go models endpoint on every load (with the docs page/Markdown and text
+   proxies as fallbacks) and cached in localStorage for an hour. */
 const PREFS_KEY = "go-prefs-v10"; // v10: "Teams vs Go" column added after "Plus vs Go"
 const LEGACY_PREFS_KEYS = ["go-prefs-v9", "go-prefs-v8", "go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
 const SOURCE_URL = "https://opencode.ai/docs/console/go/";
 const MD_SOURCE_URL = "https://opencode.ai/docs/console/go.md";
+const MODELS_SOURCE_URL = "https://opencode.ai/inference/go/v1/models";
 const PROXY_MD_URL = "https://r.jina.ai/https://opencode.ai/docs/console/go.md";
+const PROXY_MODELS_URL = "https://r.jina.ai/https://opencode.ai/inference/go/v1/models";
 const PROXY_URL = "https://r.jina.ai/https://opencode.ai/docs/console/go/";
 const LIVE_KEY = "go-live-v3"; // v3: stores { go, plus, teams } rows per plan
 const LIVE_TTL_MS = 3600 * 1000; // remember refreshed prices for 1 hour
@@ -282,8 +286,8 @@ function savePrefs() {
   } catch {}
 }
 
-// No prices are stored in this page. MODELS is fetched live from the official
-// Go / Go Plus / Go Teams docs tables on every load (see refreshFromSource). Each entry
+// No prices are stored in this page. MODELS is fetched live from the OpenCode
+// Go models endpoint on every load (see refreshFromSource). Each entry
 // looks like { model, input, output, cached, limit, limitPlus, limitTeams, note? }: prices
 // in $ per 1M tokens, limit / limitPlus / limitTeams are the Go / Go Plus / Go Teams
 // monthly allowances in $ (null = Unlimited).
@@ -453,6 +457,80 @@ function parseSourceHtml(htmlText) {
   };
 }
 
+// Parse the Go models endpoint (current source of truth). Prices live in
+// cost.text (input / cached-read / output) and per-plan monthly allowances in
+// go.monthly_usage ("go" / "go-plus" / "go-teams"). Free models have $0 prices
+// and no monthly_usage, so their allowance is null (Unlimited). The endpoint
+// sends Access-Control-Allow-Origin: *, so browsers can fetch it directly.
+function parseSourceModels(text) {
+  let body;
+  try { body = JSON.parse(text); } catch { throw new Error("models endpoint did not return JSON"); }
+  const list = Array.isArray(body) ? body : body && Array.isArray(body.data) ? body.data : null;
+  if (!list) throw new Error("models list not found in source page");
+  const num = (v) => { const n = Number(v); return isFinite(n) && n >= 0 ? n : 0; };
+  const allowance = (usage, plan) => {
+    if (!usage || usage[plan] === undefined || usage[plan] === null) return null;
+    return num(usage[plan]);
+  };
+  // Newer API versions attach cost.multipliers (recurring peak hours, or a
+  // scheduled price change). The docs used to list off-peak/peak as separate
+  // rows, so expand recurring peak rules into extra rows to preserve that
+  // view; scheduled date changes become a small note on the base row.
+  const variantsFor = (m) => {
+    const rules = m.cost && Array.isArray(m.cost.multipliers) ? m.cost.multipliers : [];
+    const variants = [{ suffix: "", factor: 1, note: null }];
+    let hasPeak = false;
+    let dateFactor = 1;
+    const today = new Date().toISOString().slice(0, 10); // UTC date, same as API dates
+    for (const rule of rules) {
+      const factor = Number(rule.factor);
+      if (!isFinite(factor) || factor <= 0 || factor === 1) continue;
+      const when = rule.when || {};
+      if (when.date) {
+        const gte = when.date.gte, lt = when.date.lt;
+        const active = (!gte || today >= gte) && (!lt || today < lt);
+        if (active) dateFactor *= factor;
+        else if (gte) variants[0].note = factor + "× from " + gte;
+        continue;
+      }
+      const peak = when.utc_days || when.utc_hours || when.any || when.all;
+      variants.push({ suffix: " (" + (peak ? "Peak" : factor + "×") + ")", factor, note: null });
+      hasPeak = true;
+    }
+    if (dateFactor !== 1) variants.forEach((v) => { v.factor *= dateFactor; });
+    if (hasPeak) variants[0].suffix = " (Off-Peak)";
+    return variants;
+  };
+  const rowsFor = (plan, requireAllowance) => {
+    const rows = [];
+    for (const m of list) {
+      if (!m || typeof m !== "object" || (m.type && m.type !== "chat")) continue;
+      const name = cleanModelName(m.name || m.id || "");
+      const cost = m.cost && m.cost.text;
+      if (!name || !cost || !cost.input || !cost.output) continue;
+      const limit = allowance(m.go && m.go.monthly_usage, plan);
+      if (requireAllowance && limit === null) continue;
+      for (const v of variantsFor(m)) {
+        const row = {
+          model: name + v.suffix,
+          input: num(cost.input.price) * v.factor,
+          output: num(cost.output.price) * v.factor,
+          cached: num(cost.input.cache && cost.input.cache.read) * v.factor,
+          limit, // free models omit monthly_usage -> null (Unlimited)
+        };
+        if (v.note) row.note = v.note;
+        rows.push(row);
+      }
+    }
+    return rows;
+  };
+  const go = rowsFor("go", false);
+  if (go.length < 10) throw new Error("pricing table not found in source page");
+  // Only override a plan's allowance when that plan lists the model;
+  // mergePlanRows() otherwise mirrors the Go allowance.
+  return { go, plus: rowsFor("go-plus", true), teams: rowsFor("go-teams", true) };
+}
+
 // Merge Go + Go Plus + Go Teams rows by model name. Prices are identical across
 // plans; only the allowance (limit vs limitPlus vs limitTeams) differs.
 // Everything comes from the live fetch: if a model has no row in a plan table
@@ -545,11 +623,12 @@ function applyLiveData(goRows, plusRows, teamsRows, via) {
 
 async function refreshFromSource() {
   srcBtn.disabled = true;
-  // Order matters: the official go.md contains every plan tab in one file, so
-  // try it first. The HTML page needs panel-aware parsing; the legacy Jina
-  // mirror of the HTML only renders the Go tab, so the Jina mirror of go.md
-  // (all plans) is preferred over it.
+  // The models endpoint is the current source of truth (the docs page no
+  // longer embeds pricing tables). Keep the older docs/Markdown parsers as
+  // fallbacks in case the endpoint is unavailable or the docs regain tables.
   const attempts = [
+    { url: MODELS_SOURCE_URL, via: "models api", parse: parseSourceModels },
+    { url: PROXY_MODELS_URL, via: "text proxy api", parse: parseSourceModels },
     { url: MD_SOURCE_URL, via: "direct md", parse: parseSourceMarkdown },
     { url: SOURCE_URL, via: "direct", parse: parseSourceHtml },
     { url: PROXY_MD_URL, via: "text proxy md", parse: parseSourceMarkdown },
@@ -687,7 +766,7 @@ function render() {
     const cashPct = cost / subPrice * 100;
     const subs = cost / subPrice;
     const perSub = cost > 0 ? subPrice / cost : Infinity;
-    const allowPct = lim === null || lim === undefined ? null : cost / lim * 100;
+    const allowPct = (lim === null || lim === undefined || !(lim > 0)) ? null : cost / lim * 100;
     const barW = allowPct === null ? 0 : Math.min(100, allowPct);
     const blended = (1 - p) * ((1 - h) * m.input + h * m.cached) + p * m.output; // $ per 1M total tokens
     const maxTok = (lim === null || lim === undefined || blended <= 0) ? Infinity : lim / blended * 1e6;

@@ -3,9 +3,9 @@
 ## No price maintenance
 
 There is no price list to edit. New models, price changes, and allowance
-changes in the source docs flow in automatically. Only touch the parser if the
-docs change the table *shape* (e.g. a new price column in `rowsFromCells`,
-or renamed headers).
+changes in the source endpoint flow in automatically. Only touch the parser if
+the source changes shape (e.g. a new price field in `parseSourceModels`, or
+renamed columns in `rowsFromCells`).
 
 ## Add a column
 
