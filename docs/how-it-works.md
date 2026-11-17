@@ -8,20 +8,30 @@ plus the live price fetch.
 
 `MODELS` starts empty and is filled on every load by `refreshFromSource()`:
 
-- Tries in order: official Markdown (`go.md`, all three plan tables) →
-  docs HTML → Jina text-proxy mirror of the Markdown → legacy HTML mirror
-  (Go tab only).
-- Markdown parsing (`parseSourceMarkdown`): every pipe-table with
+- Tries in order: live models API (`/inference/go/v1/models`, all three plan
+  allowances in one response) → text-proxy mirror of the API → legacy official
+  Markdown (`go.md`) → docs HTML → legacy text-proxy mirrors.
+  (Since 2026-11 the docs page no longer embeds pricing tables, so the docs
+  parsers are fallbacks only.)
+- API parsing (`parseModelsApi`): `data[]` entries supply `name`,
+  `cost.text.input.price`, `cost.text.input.cache.read`,
+  `cost.text.output.price`, and `go.monthly_usage` (`go` / `go-plus` /
+  `go-teams`; `null` = free = Unlimited on every plan). Returns `{ go, plus,
+  teams }` in the same row shape the docs parsers produced. Tags: a
+  `cost.multipliers` entry with `factor > 1` → `peak 2×`; free
+  (`monthly_usage: null`) → `limited time`.
+- Markdown parsing (`parseSourceMarkdown`, legacy): every pipe-table with
   Input + Monthly-limit columns. Order is Go, Go Plus, Go Teams.
-- HTML parsing (`parseSourceHtml`): prefers
+- HTML parsing (`parseSourceHtml`, legacy): prefers
   `[data-plan-panel="go|go-plus|go-teams"]` panels (legacy `[slot]` supported);
   falls back to smallest-total = Go, middle = Teams, largest = Go Plus.
 - `mergePlanRows()` joins plans by model name. Prices are identical across
   plans — only `limit` (Go $10), `limitPlus` (Go Plus $40), `limitTeams`
   (Go Teams $20/member) differ. A missing plan row falls back to the Go limit.
-- Cell rules: `Free` → 0, `~~old~~ new` → last price wins,
+- Cell rules (legacy docs parsers): `Free` → 0, `~~old~~ new` → last price wins,
   `Unlimited` limit → `null`, `limited time` tag derived from the limit cell.
-- Successful fetches cache `{ go, plus, teams }` for 1 hour (`go-live-v3`);
+- Successful fetches cache `{ go, plus, teams }` for 1 hour (`go-live-v4`;
+  `go-live-v3`/`v2`/`v1` read as legacy);
   next load paints from cache, then revalidates. New docs rows appear
   automatically. Total failure keeps cached prices (with reason) or shows an
   error row with Retry.

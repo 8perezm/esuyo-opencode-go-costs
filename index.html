@@ -157,13 +157,13 @@
   (e.g. $3.73 on a $60 Go allowance = 6.2%, ≈16.1 blocks per month). Values &gt;100% mean the workload does <em>not</em> fit in one subscription for that model.<br/>
   <strong>Assumptions:</strong> “Total tokens” splits into input and output by “Output %”;
   output tokens are always charged at the full output rate (no cache discount on generated text).
-  Tiered rows (context-size / peak / off-peak) are listed separately as in the official table. Rows priced Free in the source table cost $0.
-  This page stores no prices: it fetches the latest Go / Go Plus / Go Teams tables live from the
-  <a href="https://opencode.ai/docs/console/go/">OpenCode Go pricing</a> docs on every load
-  (official Markdown first, then the page HTML, then via a text proxy when the browser blocks cross-site requests);
+  Tiered pricing (peak / off-peak multipliers) is folded into a “peak 2×” tag where the source reports one. Rows priced Free in the source cost $0.
+  This page stores no prices: it fetches the latest prices and Go / Go Plus / Go Teams allowances live from the
+  <a href="https://opencode.ai/inference/go/v1/models">OpenCode Go models API</a> on every load
+  (direct first, then via a text proxy when the browser blocks cross-site requests; the old docs tables are kept as a legacy fallback);
   successful fetches are cached in this browser for an hour for fast reloads.
   Press “↻ Refresh from source” to force a re-check.
-  If the docs gain a new model row, it appears here automatically on the next load.
+  If the API gains a new model, it appears here automatically on the next load.
   “Tokens / sub” is the total tokens the subscription’s allowance buys at the current hit rate and output share (allowance ÷ blended $/1M price; updates when you change either).
   “Plus vs Go” is how many times more tokens Go Plus buys than Go for that model (Go Plus allowance ÷ Go allowance; token prices are identical, so hit rate and output share cancel out). Free rows show “—”.
   “Teams vs Go” is the same comparison against the Go Teams allowance. Free rows show “—”.
@@ -173,9 +173,9 @@
 <script>
 "use strict";
 /* Fully client-side. No server, no build: all math + rendering happens here.
-   Prices are NOT stored in this page - they are fetched live from the official
-   Go / Go Plus / Go Teams docs tables on every load (official Markdown, page
-   HTML, or via a text proxy when the browser blocks cross-site requests)
+   Prices are NOT stored in this page - they are fetched live from the OpenCode
+   Go models API on every load (direct, or via a text proxy when the browser
+   blocks cross-site requests; the old docs tables are a legacy fallback)
    and cached in localStorage for an hour. */
 const PREFS_KEY = "go-prefs-v10"; // v10: "Teams vs Go" column added after "Plus vs Go"
 const LEGACY_PREFS_KEYS = ["go-prefs-v9", "go-prefs-v8", "go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
@@ -183,7 +183,9 @@ const SOURCE_URL = "https://opencode.ai/docs/console/go/";
 const MD_SOURCE_URL = "https://opencode.ai/docs/console/go.md";
 const PROXY_MD_URL = "https://r.jina.ai/https://opencode.ai/docs/console/go.md";
 const PROXY_URL = "https://r.jina.ai/https://opencode.ai/docs/console/go/";
-const LIVE_KEY = "go-live-v3"; // v3: stores { go, plus, teams } rows per plan
+const MODELS_API_URL = "https://opencode.ai/inference/go/v1/models";
+const PROXY_MODELS_API_URL = "https://r.jina.ai/https://opencode.ai/inference/go/v1/models";
+const LIVE_KEY = "go-live-v4"; // v4: stores { go, plus, teams } rows built from the models API
 const LIVE_TTL_MS = 3600 * 1000; // remember refreshed prices for 1 hour
 const PLANS = {
   go: { id: "go", short: "Go", price: 10 },
@@ -282,8 +284,8 @@ function savePrefs() {
   } catch {}
 }
 
-// No prices are stored in this page. MODELS is fetched live from the official
-// Go / Go Plus / Go Teams docs tables on every load (see refreshFromSource). Each entry
+// No prices are stored in this page. MODELS is fetched live from the OpenCode
+// Go models API on every load (see refreshFromSource; docs tables are legacy fallback). Each entry
 // looks like { model, input, output, cached, limit, limitPlus, limitTeams, note? }: prices
 // in $ per 1M tokens, limit / limitPlus / limitTeams are the Go / Go Plus / Go Teams
 // monthly allowances in $ (null = Unlimited).
@@ -453,6 +455,70 @@ function parseSourceHtml(htmlText) {
   };
 }
 
+// Parse the live models API (https://opencode.ai/inference/go/v1/models).
+// Since 2026-11 the docs page no longer embeds pricing tables — prices and
+// monthly allowances live only in this endpoint — so it is the primary source.
+// Shape: { object: "list", data: [{ name, cost: { text: { input: { price, cache: { read } }, output: { price } }, multipliers? }, go: { monthly_usage: { go, go-plus, go-teams } | null } }] }.
+// Returns { go, plus, teams } in the same row shape the docs parsers produced,
+// so mergePlanRows() and the cache format stay unchanged.
+function parseModelsApi(jsonText) {
+  let data = jsonText;
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    // The text proxy may wrap JSON in markdown fences or in a
+    // "Title: / URL Source: / Markdown Content:" envelope; strip them.
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = (fenced ? fenced[1] : trimmed).trim();
+    try {
+      data = JSON.parse(candidate);
+    } catch {
+      const start = candidate.indexOf("{");
+      const end = candidate.lastIndexOf("}");
+      if (start < 0 || end <= start) throw new Error("pricing table not found in source page");
+      try {
+        data = JSON.parse(candidate.slice(start, end + 1));
+      } catch {
+        throw new Error("pricing table not found in source page");
+      }
+    }
+  }
+  const list = Array.isArray(data) ? data : data && data.data;
+  if (!Array.isArray(list) || !list.length) throw new Error("pricing table not found in source page");
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isNaN(n) || n < 0 ? 0 : n;
+  };
+  const go = [], plus = [], teams = [];
+  for (const m of list) {
+    if (!m || typeof m !== "object") continue;
+    const name = String(m.name || m.id || "").trim();
+    if (!name) continue;
+    const text = (m.cost && m.cost.text) || {};
+    const input = num(text.input && text.input.price);
+    const cached = num(text.input && text.input.cache && text.input.cache.read);
+    const output = num(text.output && text.output.price);
+    const usage = m.go && m.go.monthly_usage;
+    // Free models report monthly_usage: null → Unlimited on every plan.
+    const lim = usage ? num(usage.go) || null : null;
+    const limPlus = usage ? num(usage["go-plus"]) || null : null;
+    const limTeams = usage ? num(usage["go-teams"]) || null : null;
+    // Skip rows that carry no usable signal at all.
+    if (!(input > 0 || cached > 0 || output > 0 || lim !== null)) {
+      if (!(input === 0 && cached === 0)) continue;
+    }
+    const row = { model: name, input, output, cached, limit: lim === null ? null : lim };
+    // Tags are derived from the source itself, never stored in this page.
+    const mults = (m.cost && m.cost.multipliers) || [];
+    if (Array.isArray(mults) && mults.some((x) => x && Number(x.factor) > 1)) row.note = "peak 2×";
+    if (usage === null || usage === undefined) row.note = row.note ? row.note + " · limited time" : "limited time";
+    go.push(row);
+    plus.push({ model: name, limit: limPlus === null ? null : limPlus });
+    teams.push({ model: name, limit: limTeams === null ? null : limTeams });
+  }
+  if (go.length < 10) throw new Error("pricing table not found in source page");
+  return { go, plus, teams };
+}
+
 // Merge Go + Go Plus + Go Teams rows by model name. Prices are identical across
 // plans; only the allowance (limit vs limitPlus vs limitTeams) differs.
 // Everything comes from the live fetch: if a model has no row in a plan table
@@ -491,6 +557,14 @@ function readLive() {
     if (cur.plus !== null && cur.plus !== undefined && !Array.isArray(cur.plus)) return null;
     if (cur.teams !== null && cur.teams !== undefined && !Array.isArray(cur.teams)) return null;
     return cur;
+  }
+  // Legacy v3 cache: { go, plus, teams } from the old docs tables — same shape
+  // as v4, so keep it until the next successful models-API fetch refreshes it.
+  const v3 = readKey("go-live-v3");
+  if (v3 && Array.isArray(v3.go)) {
+    if (v3.plus !== null && v3.plus !== undefined && !Array.isArray(v3.plus)) return null;
+    if (v3.teams !== null && v3.teams !== undefined && !Array.isArray(v3.teams)) return null;
+    return { t: v3.t, via: v3.via || "cache", go: v3.go, plus: v3.plus || null, teams: v3.teams || null, legacy: true };
   }
   // Legacy v2 cache: { go, plus } — keep it, Go Teams reuses Go limits
   // until the next successful fetch.
@@ -545,11 +619,13 @@ function applyLiveData(goRows, plusRows, teamsRows, via) {
 
 async function refreshFromSource() {
   srcBtn.disabled = true;
-  // Order matters: the official go.md contains every plan tab in one file, so
-  // try it first. The HTML page needs panel-aware parsing; the legacy Jina
-  // mirror of the HTML only renders the Go tab, so the Jina mirror of go.md
-  // (all plans) is preferred over it.
+  // Primary source is the live models API — since 2026-11 the docs page no
+  // longer embeds pricing tables, so the docs parsers below are legacy
+  // fallbacks only. The text-proxy mirror of the API is preferred over the
+  // docs mirrors when the browser blocks cross-site requests.
   const attempts = [
+    { url: MODELS_API_URL, via: "models api", parse: parseModelsApi },
+    { url: PROXY_MODELS_API_URL, via: "text proxy api", parse: parseModelsApi },
     { url: MD_SOURCE_URL, via: "direct md", parse: parseSourceMarkdown },
     { url: SOURCE_URL, via: "direct", parse: parseSourceHtml },
     { url: PROXY_MD_URL, via: "text proxy md", parse: parseSourceMarkdown },

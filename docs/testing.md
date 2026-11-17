@@ -17,11 +17,14 @@
    ($3.73 ÷ $180 × $40); at 0% out it reproduces the old input-only $3.36.
    Session scale (11.9M total, 0.99% out): Muse Spark 1.3 ≈ $0.082.
 
-4. Parser: download the official markdown
-   (`curl -s "https://opencode.ai/docs/console/go.md" -o /tmp/go.md`),
+4. Parser: download the live models API
+   (`curl -s "https://opencode.ai/inference/go/v1/models" -o /tmp/models.json`),
    evaluate the pure parser functions in Node (slice the script from
-   `function parsePrice` to `function readLive` — no DOM stubs needed), and
+   `function parseModelsApi` to `function readLive` — no DOM stubs needed), and
    assert well-formed rows: ≥ 30 rows, non-empty names, non-negative prices,
-   positive-or-null limits. Exercise `refreshFromSource` with stubbed `fetch`
+   positive-or-null limits. Also assert the proxy envelope
+   (`r.jina.ai/.../inference/go/v1/models`) parses to the same row count,
+   and that the legacy docs Markdown (`go.md`) now throws
+   "pricing table not found" (tables moved to the API). Exercise `refreshFromSource` with stubbed `fetch`
    (direct rejects, proxy resolves) and all-rejecting `fetch` for both failure
    paths (with and without cached `MODELS`).
