@@ -8,23 +8,25 @@ plus the live price fetch.
 
 `MODELS` starts empty and is filled on every load by `refreshFromSource()`:
 
-- Tries in order: official Markdown (`go.md`, all three plan tables) →
-  docs HTML → Jina text-proxy mirror of the Markdown → legacy HTML mirror
-  (Go tab only).
-- Markdown parsing (`parseSourceMarkdown`): every pipe-table with
-  Input + Monthly-limit columns. Order is Go, Go Plus, Go Teams.
-- HTML parsing (`parseSourceHtml`): prefers
-  `[data-plan-panel="go|go-plus|go-teams"]` panels (legacy `[slot]` supported);
-  falls back to smallest-total = Go, middle = Teams, largest = Go Plus.
+- Tries in order: live models API (`/inference/go/v1/models`, all three plan
+  allowances in one response) → text-proxy mirror of the API (for browsers
+  that block the cross-site request).
+- API parsing (`parseModelsApi`): `data[]` entries supply `name`,
+  `cost.text.input.price`, `cost.text.input.cache.read`,
+  `cost.text.output.price`, and `go.monthly_usage` (`go` / `go-plus` /
+  `go-teams`; `null` = free = Unlimited on every plan). Returns `{ go, plus,
+  teams }` row sets. Tags are derived from the source, never stored: a
+  `cost.multipliers` entry with `factor > 1` → `peak 2×`; zero input and
+  cached-read prices → `limited time`.
 - `mergePlanRows()` joins plans by model name. Prices are identical across
   plans — only `limit` (Go $10), `limitPlus` (Go Plus $40), `limitTeams`
   (Go Teams $20/member) differ. A missing plan row falls back to the Go limit.
-- Cell rules: `Free` → 0, `~~old~~ new` → last price wins,
-  `Unlimited` limit → `null`, `limited time` tag derived from the limit cell.
-- Successful fetches cache `{ go, plus, teams }` for 1 hour (`go-live-v3`);
+- Successful fetches cache `{ go, plus, teams }` for 1 hour (`go-live-v4`;
+  `go-live-v3`/`v2`/`v1` read as legacy);
   next load paints from cache, then revalidates. New docs rows appear
   automatically. Total failure keeps cached prices (with reason) or shows an
-  error row with Retry.
+  error row with Retry (built with DOM APIs so the error text is never parsed
+  as markup).
 
 ## Cost model
 
@@ -65,7 +67,7 @@ Inputs: total project tokens `T` (millions), hit rate `h`, output share `p`.
   `ensureVisibleSort()` falls back to Max tokens / sub so the indicator stays
   visible.
 - Feed badge (`#feedBadge`, `setFeed()`): green `live · all plans`, amber
-  `live · partial` / `cached — checking…` / `stale — refresh failed`, blue
+  `cached — checking…` / `stale — refresh failed`, blue
   pulsing `checking…`, red `source parse failed`. Hover for details.
 - Persistence (`go-prefs-v10` in localStorage): plan, search, tokens, hit rate,
   output %, free-models toggle, column visibility, sort column/direction.
