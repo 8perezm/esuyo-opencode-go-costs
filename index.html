@@ -183,8 +183,8 @@
    Prices are NOT stored in this page - they are fetched live from the OpenCode
    Go models endpoint on every load (with the docs page/Markdown and text
    proxies as fallbacks) and cached in localStorage for an hour. */
-const PREFS_KEY = "go-prefs-v10"; // v10: "Teams vs Go" column added after "Plus vs Go"
-const LEGACY_PREFS_KEYS = ["go-prefs-v9", "go-prefs-v8", "go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
+const PREFS_KEY = "go-prefs-v11"; // v11: "Plus vs Go" and "Teams vs Go" hidden by default (enable via Columns ▾)
+const LEGACY_PREFS_KEYS = ["go-prefs-v10", "go-prefs-v9", "go-prefs-v8", "go-prefs-v7", "go-prefs-v6", "go-prefs-v5", "go-prefs-v4", "go-prefs-v3"];
 const SOURCE_URL = "https://opencode.ai/docs/console/go/";
 const MD_SOURCE_URL = "https://opencode.ai/docs/console/go.md";
 const MODELS_SOURCE_URL = "https://opencode.ai/inference/go/v1/models";
@@ -220,6 +220,8 @@ const COLUMNS = [
 function defaultPrefs() {
   const cols = {};
   COLUMNS.forEach((c) => { cols[c.key] = true; });
+  cols.plusvgo = false; // "Plus vs Go" off by default; user can enable it in Columns ▾
+  cols.teamsvgo = false; // "Teams vs Go" off by default; user can enable it in Columns ▾
   return { plan: "go", project: false, tokensM: 100, hit: 97, outPct: 0.8, q: "", showFree: true, cols, sortCol: 9, sortDir: -1 }; // sort = Max tokens / sub ↓ (largest first = cheapest first)
 }
 
@@ -232,13 +234,13 @@ function loadPrefs() {
     try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   };
   let p = null;
-  let legacyGen = 0; // 0 = current, 8 = v8 (pre-project-toggle), 7 = v7 (pre-Plus-vs-Go), 6 = v6, 5 = v5, 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
+  let legacyGen = 0; // 0 = current, 10 = v10 (pre-v11 defaults), 8 = v8 (pre-project-toggle), 7 = v7 (pre-Plus-vs-Go), 6 = v6, 5 = v5, 4 = v4 (cost idx1, subcost idx2), 3 = v3 (no subcost column)
   try { p = parse(localStorage.getItem(PREFS_KEY)); } catch { p = null; }
   if (!p) {
     for (const k of LEGACY_PREFS_KEYS) {
       try {
         const lp = parse(localStorage.getItem(k));
-        if (lp) { p = lp; legacyGen = k === "go-prefs-v9" ? 9 : k === "go-prefs-v8" ? 8 : k === "go-prefs-v7" ? 7 : k === "go-prefs-v6" ? 6 : k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
+        if (lp) { p = lp; legacyGen = k === "go-prefs-v10" ? 10 : k === "go-prefs-v9" ? 9 : k === "go-prefs-v8" ? 8 : k === "go-prefs-v7" ? 7 : k === "go-prefs-v6" ? 6 : k === "go-prefs-v5" ? 5 : k === "go-prefs-v4" ? 4 : 3; break; }
       } catch {}
     }
   }
@@ -260,6 +262,7 @@ function loadPrefs() {
     }
     const cols = Object.assign(d.cols, p.cols || {});
     if (legacyGen !== 0) cols.cost = true; // "Cost" visible again; toggle via Columns ▾
+    if (legacyGen === 10) { cols.plusvgo = false; cols.teamsvgo = false; } // hidden by default from v11; toggle via Columns ▾
     return {
       plan: p.plan === "plus" ? "plus" : p.plan === "teams" ? "teams" : "go",
       project: p.project === true,

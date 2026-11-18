@@ -21,8 +21,9 @@ Saved prefs default new columns to visible.
 ## Change defaults
 
 Edit `defaultPrefs()`: `plan: "go"`, `tokensM: 100, hit: 97, outPct: 0.8`,
-`q: ""`, `showFree: true`, all columns on, sort = Max tokens / sub descending
-(`sortCol: 9, sortDir: -1`).
+`q: ""`, `showFree: true`, all columns on except "Plus vs Go" and "Teams vs
+Go" (off by default — the user enables them in Columns ▾), sort = Max tokens /
+sub descending (`sortCol: 9, sortDir: -1`).
 
 ## Styling
 

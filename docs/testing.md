@@ -1,30 +1,34 @@
 # Testing
 
-1. Syntax-check the script:
+Requires Node 18+. Run the suite:
 
-   ```sh
-   python -c "import re;print(re.search(r'<script>(.*)</script>',open('index.html').read(),re.S).group(1))" > /tmp/check.js && node --check /tmp/check.js
-   ```
+```sh
+npm test          # or: node --test test/
+```
 
-2. Functional check: run the page logic in Node with stubbed
-   `document`/`localStorage` (no `fetch` needed), pre-seed `go-prefs-v10`,
-   call the header click handlers, and assert on `tbody.innerHTML`, header
-   arrows (`▲/▼/↕`), and stored prefs. Verify `ensureVisibleSort()` falls back
-   to Max tokens / sub when the stored sort targets a hidden Project column.
+No dependencies, no build step. The tests load the real inline `<script>` from
+`index.html` into a VM with stubbed `document`/`localStorage`/`fetch`
+(`test/harness.js`), so there is one source of truth and the tests cannot drift
+from the page.
 
-3. Spot-check math (h = 97%, T = 100M total, 0.8% out): GLM-5.3-Flash cost
-   $3.73, sub cost ≈ $0.62 on Go ($3.73 ÷ $60 × $10) and ≈ $0.83 on Go Plus
-   ($3.73 ÷ $180 × $40); at 0% out it reproduces the old input-only $3.36.
-   Session scale (11.9M total, 0.99% out): Muse Spark 1.3 ≈ $0.082.
+- `test/prefs.test.js` — fresh defaults, v10 → v11 migration, legacy sort-index
+  shifts, column visibility, hidden-sort fallback.
+- `test/logic.test.js` — formatting helpers, workload math, plan limits.
+- `test/parsers.test.js` — the three source parsers and `mergePlanRows` against
+  the fixtures in `test/fixtures/`, plus `refreshFromSource` success/fallback/
+  failure paths with stubbed `fetch`.
+- `test/smoke-source.test.js` — skipped by default; opt in with
+  `RUN_LIVE=1 npm test` (macOS/Linux) or `$env:RUN_LIVE="1"; npm test`
+  (PowerShell) to also check the live models endpoint.
 
-4. Sources: fetch the models endpoint
-   (`curl -s "https://opencode.ai/inference/go/v1/models" -o /tmp/go-models.json`)
-   and evaluate `parseSourceModels` in Node (slice the script from
-   `function parsePrice` to `function readLive` — no DOM stubs needed). Assert
-   well-formed rows: ≥ 30 rows, non-empty names, non-negative prices, and
-   per-plan allowances (`go` > 0 for paid models, `null` for free rows). Also
-   download the Markdown fallback (`curl -s "https://opencode.ai/docs/console/go.md" -o /tmp/go.md`)
-   and check `parseSourceMarkdown` still returns well-formed rows if the docs
-   regain pricing tables. Exercise `refreshFromSource` with stubbed `fetch`
-   (direct endpoint rejects, proxy resolves) and all-rejecting `fetch` for both
-   failure paths (with and without cached `MODELS`).
+## Needs a real browser
+
+Node cannot honestly verify rendering, so spot-check these manually:
+
+- Columns ▾ lists "Plus vs Go" and "Teams vs Go" unchecked; ticking reveals
+  them, unticking hides them again.
+- Sort arrows (▲/▼/↕) respond to header clicks.
+- Plan radios update the allowance-derived headers.
+- State (plan, search, tokens, hit rate, output %, columns, sort) survives a
+  reload.
+- Feed badge and the live fetch / CORS against opencode.ai.

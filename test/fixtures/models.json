@@ -1,0 +1,81 @@
+{
+  "data": [
+    {
+      "name": "Alpha",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "1", "cache": { "read": "0.1" } }, "output": { "price": "2" } } },
+      "go": { "monthly_usage": { "go": "60", "go-plus": "180", "go-teams": "90" } }
+    },
+    {
+      "name": "Beta",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "2", "cache": { "read": "0.2" } }, "output": { "price": "3" } } },
+      "go": { "monthly_usage": { "go": "40", "go-plus": "120", "go-teams": "60" } }
+    },
+    {
+      "name": "Gamma",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "0.5", "cache": { "read": "0.05" } }, "output": { "price": "1" } } },
+      "go": { "monthly_usage": { "go": "100", "go-plus": "300", "go-teams": "150" } }
+    },
+    {
+      "name": "Delta",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "3", "cache": { "read": "0.3" } }, "output": { "price": "4" } } },
+      "go": { "monthly_usage": { "go": "30", "go-plus": "90", "go-teams": "45" } }
+    },
+    {
+      "name": "Epsilon",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "4", "cache": { "read": "0.4" } }, "output": { "price": "5" } } },
+      "go": { "monthly_usage": { "go": "25", "go-plus": "75", "go-teams": "37.5" } }
+    },
+    {
+      "name": "Zeta",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "1.5", "cache": { "read": "0.15" } }, "output": { "price": "2.5" } } },
+      "go": { "monthly_usage": { "go": "50", "go-plus": "150", "go-teams": "75" } }
+    },
+    {
+      "name": "Eta",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "0.8", "cache": { "read": "0.08" } }, "output": { "price": "1.2" } } },
+      "go": { "monthly_usage": { "go": "80", "go-plus": "240", "go-teams": "120" } }
+    },
+    {
+      "name": "Theta",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "5", "cache": { "read": "0.5" } }, "output": { "price": "6" } } },
+      "go": { "monthly_usage": { "go": "20", "go-plus": "60", "go-teams": "30" } }
+    },
+    {
+      "name": "Iota",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "0.2", "cache": { "read": "0.02" } }, "output": { "price": "0.4" } } },
+      "go": { "monthly_usage": { "go": "150", "go-plus": "450", "go-teams": "225" } }
+    },
+    {
+      "name": "Free Model",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "0", "cache": { "read": "0" } }, "output": { "price": "0" } } }
+    },
+    {
+      "name": "Peak Model",
+      "type": "chat",
+      "cost": {
+        "text": { "input": { "price": "1", "cache": { "read": "0.1" } }, "output": { "price": "2" } },
+        "multipliers": [
+          { "factor": "1.5", "when": { "date": { "gte": "2030-01-01" } } },
+          { "factor": "2", "when": { "utc_hours": [9, 17] } }
+        ]
+      },
+      "go": { "monthly_usage": { "go": "60", "go-plus": "180", "go-teams": "90" } }
+    },
+    {
+      "name": "No Plus Model",
+      "type": "chat",
+      "cost": { "text": { "input": { "price": "1", "cache": { "read": "0.1" } }, "output": { "price": "2" } } },
+      "go": { "monthly_usage": { "go": "70" } }
+    }
+  ]
+}

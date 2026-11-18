@@ -76,7 +76,8 @@ Inputs: total project tokens `T` (millions), hit rate `h`, output share `p`.
 - Feed badge (`#feedBadge`, `setFeed()`): green `live · all plans`, amber
   `live · partial` / `cached — checking…` / `stale — refresh failed`, blue
   pulsing `checking…`, red `source parse failed`. Hover for details.
-- Persistence (`go-prefs-v10` in localStorage): plan, search, tokens, hit rate,
+- Persistence (`go-prefs-v11` in localStorage): plan, search, tokens, hit rate,
   output %, free-models toggle, column visibility, sort column/direction.
   Restored in `boot()` via `restorePrefs()`; legacy prefs migrate
-  (`cost` forced visible, old sort indexes shifted).
+  (`cost` forced visible, old sort indexes shifted; from v10 the "Plus vs Go"
+  and "Teams vs Go" columns start hidden — enable via Columns ▾).

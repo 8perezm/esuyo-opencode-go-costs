@@ -1,0 +1,9 @@
+{
+  "name": "esuyo-opencode-go-costs-table",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-contained OpenCode Go plan cost comparison page",
+  "scripts": {
+    "test": "node --test test/"
+  }
+}
